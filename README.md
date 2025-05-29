@@ -49,7 +49,7 @@ python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\acti
 
 ```bash
 # start fresh day
-ython tasker_fixed.py newday
+python tasker_fixed.py newday
 
 # add your first task
 python tasker_fixed.py add "Write killer README"
@@ -98,14 +98,16 @@ python tasker_fixed.py --plain status   # disables color + emoji
 
 ---
 
-## 🗺️ Roadmap (trimmed)
+## 🗺️ Roadmap
 
-- [ ] Prompt user after `done` to pull or add next task
-- [ ] Mark backlog item as “no‑longer‑needed”
-- [ ] Sorting / filters (`--sort created|priority`)
-- [ ] Pomodoro timer with progress bar (uses same `--plain` flag)
+* [ ] Task categories and priority tags
+* [ ] Ability to mark tasks as no longer needed
+* [ ] Sort backlog by due date, project, or priority
+* [ ] Built-in Pomodoro timer with progress bar
+* [ ] Track estimated vs. actual time
+* [ ] AI-powered backlog prioritization (stretch)
 
-See **`TODO.md`** for the full backlog.
+See [`TODO.md`](TODO.md) for development notes.
 
 ---
 
