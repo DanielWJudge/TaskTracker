@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-tasktracker.py (Improved with Color Class, Helpers, and CLI Enhancements)
+tasktracker.py (Improved with Backlog Subcommands)
 """
 
 import argparse, json, sys, uuid
@@ -88,6 +88,43 @@ def cmd_newday(args):
 def cmd_about(args):
     print(f"TaskTracker CLI v{VERSION} — One-task-at-a-time tool")
 
+def cmd_backlog_add(args):
+    data = load()
+    today = ensure_today(data)
+    backlog_item = {
+        "id": uuid.uuid4().hex[:8],
+        "task": args.task,
+        "ts": datetime.now().isoformat(timespec='seconds')
+    }
+    today["backlog"].append(backlog_item)
+    save(data)
+    print(f"➕ Backlog task added: {args.task}")
+
+def cmd_backlog_list(args):
+    data = load()
+    today = ensure_today(data)
+    print("\n📋 Backlog:")
+    if not today["backlog"]:
+        print("(empty)")
+        return
+    for i, item in enumerate(today["backlog"], 1):
+        ts = item["ts"].split("T")[1]
+        print(f"{i:2}. {item['task']} [{ts}]")
+
+def cmd_backlog_pull(args):
+    data = load()
+    today = ensure_today(data)
+    if today.get("todo"):
+        print(f"❌ Cannot pull — active task in progress: {today['todo']}")
+        return
+    if not today["backlog"]:
+        print("📭 Backlog is empty.")
+        return
+    pulled = today["backlog"].pop(0)
+    today["todo"] = pulled["task"]
+    save(data)
+    print(f"📤 Pulled from backlog: {pulled['task']}")
+
 def parse_args():
     p = argparse.ArgumentParser(description="One-task-at-a-time tracker")
     p.add_argument("--store", default="storage.json", help="Optional path to storage file")
@@ -109,8 +146,24 @@ def parse_args():
     v = sub.add_parser("about", help="Show tool version")
     v.set_defaults(func=cmd_about)
 
+    # Git-style backlog subcommands
+    backlog = sub.add_parser("backlog", help="Manage backlog tasks")
+    backlog_sub = backlog.add_subparsers(dest="subcmd", required=True)
+
+    b_add = backlog_sub.add_parser("add", help="Add a task to the backlog")
+    b_add.add_argument("task", nargs="+", help="Backlog task description")
+    b_add.set_defaults(func=cmd_backlog_add)
+
+    b_list = backlog_sub.add_parser("list", help="List all backlog tasks")
+    b_list.set_defaults(func=cmd_backlog_list)
+
+    b_pull = backlog_sub.add_parser("pull", help="Pull a task from the backlog to active")
+    b_pull.set_defaults(func=cmd_backlog_pull)
+
     args = p.parse_args()
     if args.cmd == "add":
+        args.task = " ".join(args.task)
+    elif args.cmd == "backlog" and args.subcmd == "add":
         args.task = " ".join(args.task)
     return args
 
