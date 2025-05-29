@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, date
 from pathlib import Path
 
+from click import style
+
 # ===== Global toggles =====
 USE_PLAIN = False
 STORE: Path = Path("storage.json")
@@ -70,7 +72,14 @@ def cmd_add(args):
     today = ensure_today(data)
     if today["todo"]:
         print(f"{emoji('error')} Active task already exists: {today['todo']}")
+        response = input(f"{style(BOLD)}➕ Would you like to add '{args.task}' to the backlog instead? [y/N]: {RESET}")
+        if response.strip().lower() == 'y':
+            ts = datetime.now().time().isoformat(timespec='seconds')
+            today["backlog"].append({"task": args.task, "ts": ts})
+            save(data)
+            print(f"{emoji('backlog_add')} Added to backlog: {repr(args.task)}")
         return
+
     today["todo"] = args.task
     save(data)
     print(f"{emoji('added')} Added: {args.task}")
