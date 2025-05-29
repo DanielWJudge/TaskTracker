@@ -74,6 +74,7 @@ def cmd_add(args):
     today["todo"] = args.task
     save(data)
     print(f"{emoji('added')} Added: {args.task}")
+    cmd_status(args)
 
 def cmd_done(args):
     data = load()
