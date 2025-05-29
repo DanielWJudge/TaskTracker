@@ -13,10 +13,11 @@ STORE: Path = Path("storage.json")
 # ===== Styling helpers =====
 RESET = "\033[0m"
 CYAN = "\033[96m"
+GREEN = "\033[92m"
 GRAY = "\033[90m"
 BOLD = "\033[1m"
 STYLE = lambda s: "" if USE_PLAIN else s
-RESET, CYAN, GRAY, BOLD = map(STYLE, (RESET, CYAN, GRAY, BOLD))
+RESET, CYAN, GRAY, BOLD, GREEN = map(STYLE, (RESET, CYAN, GRAY, BOLD, GREEN))
 EMOJI = {
     "added": "✅", "complete": "🎉", "backlog_add": "📥",
     "backlog_list": "📋", "backlog_pull": "📤", "newday": "🌅", "error": "❌"
@@ -107,7 +108,7 @@ def cmd_status(_):
     print(f"\n=== TODAY: {today_str} ===")
     for it in today["done"]:
         ts = it['ts'].split('T')[1]
-        print(f"{emoji('added')} {it['task']} [{ts}]")
+        print(f"{emoji('added')} {GREEN}{it['task']}{RESET} [{ts}]")
     if not today["done"]:
         print("No completed tasks yet.")
     print(f"{BOLD+CYAN if today['todo'] else GRAY}{today['todo'] or 'TBD'}{RESET}")
