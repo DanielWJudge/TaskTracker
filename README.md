@@ -19,15 +19,17 @@ Dog‑fooded daily, designed to live in your terminal, ready in < 1 s.
 
 ## ✨ Features
 
-| Feature | Details |
-|---------|---------|
-| 📝 **One active task** | Keeps your brain on one thing.
-| 📋 **Backlog** | `backlog add …`, `backlog list`, `backlog pull`.
-| 🕓 **Timestamps** | Done tasks logged with ISO time.
-| 🎨 **Color / Emoji** | Motivating output; disable with `--plain`.
-| 💾 **Portable JSON store** | Single `storage.json` file per user or per test.
-| 🔄 **`--store PATH`** | Point to any file (great for unit tests).
-| 🧪 **Test scaffold** | `test_tasker_fixed.py` proves core flows.
+| Feature             | Details                                                                 |
+|---------------------|-------------------------------------------------------------------------|
+| 📝 One active task  | Keeps your brain on one thing.                                           |
+| 📋 Backlog          | `backlog add`, `backlog list`, `backlog pull` to manage future tasks.   |
+| ⏰ Timestamps        | Completion time recorded in ISO format.                                 |
+| 🎨 ANSI colors       | Bold cyan for active task, green for completed.                         |
+| 🧼 Emoji output      | Motivating icons! Disable with `--plain`.                               |
+| 💾 JSON storage      | Human-readable file per day. Easy to back up or inspect.                |
+| 🔄 `--store PATH`    | Point to a custom file (useful for tests or multiple contexts).         |
+| 🧪 Testable design   | Fully covered with `test_tracker.py` (plain mode auto-applied).         |
+| 🧠 Thoughtful UX     | After `done`, it asks what to do next—backlog pull or quit.             |
 
 ---
 
@@ -92,9 +94,10 @@ python tasker_fixed.py --plain status   # disables color + emoji
     }
   }
   ```
-* Stored in `storage.json` (or your custom `--store`).
-* Each CLI command loads → mutates → saves atomically.
-* ANSI colors/emoji are wrapped; stripped when `--plain`.
+* Stored in storage.json (or --store yourfile.json)
+* Every CLI command loads → mutates → saves atomically
+* Text, emoji, and color are all optional
+* ISO timestamps are used for consistency and grepability
 
 ---
 
@@ -116,6 +119,12 @@ See [`TODO.md`](TODO.md) for development notes.
 ```bash
 python test_tasker_fixed.py   # uses its own test_storage.json
 ```
+Runs in plain mode with its own test_storage.json. Verifies:
+* Adding a task
+* Status rendering
+* Backlog add/list/pull
+* Clean exit and atomic writes
+
 All core flows must print **✅ ALL TESTS PASSED**.
 
 ---

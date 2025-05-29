@@ -18,7 +18,7 @@ A living backlog of ideas, features, and future improvements for the TaskTracker
 ## 🧱 Next-Up Candidates (High Priority)
 
 * [x] Add task backlog support (add/view/pull)
-* [ ] Prompt user after completing a task: add new or pull from backlog
+* [x] Prompt user after completing a task: add new or pull from backlog
 
 ---
 
