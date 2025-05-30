@@ -41,18 +41,30 @@ def today_key():
     return str(date.today())
 
 def ensure_today(data):
-    """Function to ensure today."""
-    return data.setdefault(today_key(), {"todo": None, "done": [], "backlog": []})
+    """Function to ensure today's date exists with proper structure."""
+    # Ensure global backlog exists
+    if "backlog" not in data:
+        data["backlog"] = []
+    
+    # Ensure today's entry exists
+    today = data.setdefault(today_key(), {"todo": None, "done": []})
+    
+    return today
+
+def get_backlog(data):
+    """Get the global backlog."""
+    return data.setdefault("backlog", [])
 
 # ===== Command functions =====
-def prompt_next_action(today):
+def prompt_next_action(data):
     """
     Ask user what to do after completing a task.
     Returns ("pull", None)  → pull from backlog
             ("add",  str)   → add the given task
             (None,   None)  → skip
     """
-    has_backlog = bool(today["backlog"])
+    backlog = get_backlog(data)
+    has_backlog = bool(backlog)
     if has_backlog:
         choice = input("[p] pull next from backlog, [a] add new, ENTER to skip ▶ ").strip().lower()
     else:
@@ -74,8 +86,8 @@ def cmd_add(args):
         print(f"{emoji('error')} Active task already exists: {today['todo']}")
         response = input(f"{style(BOLD)}➕ Would you like to add '{args.task}' to the backlog instead? [y/N]: {RESET}")
         if response.strip().lower() == 'y':
-            ts = datetime.now().time().isoformat(timespec='seconds')
-            today["backlog"].append({"task": args.task, "ts": ts})
+            ts = datetime.now().isoformat(timespec='seconds')
+            get_backlog(data).append({"task": args.task, "ts": ts})
             save(data)
             print(f"{emoji('backlog_add')} Added to backlog: {repr(args.task)}")
         return
@@ -88,6 +100,8 @@ def cmd_add(args):
 def cmd_done(args):
     data = load()
     today = ensure_today(data)
+    backlog = get_backlog(data)
+    
     if not today["todo"]:
         print(f"{emoji('error')} No active task to complete."); return
 
@@ -103,10 +117,18 @@ def cmd_done(args):
     cmd_status(args)  # show summary
 
     # --- Show backlog and prompt next action ---
-    if today["backlog"]:
+    if backlog:
         print(f"\n{emoji('backlog_list')} Backlog:")
-        for i, item in enumerate(today["backlog"], 1):
-            print(f" {i}. {item['task']} [{item['ts']}]")
+        for i, item in enumerate(backlog, 1):
+            # Parse and format the timestamp to show date and time
+            try:
+                dt = datetime.fromisoformat(item['ts'])
+                date_str = dt.strftime('%m/%d')
+                time_str = dt.strftime('%H:%M')
+                print(f" {i}. {item['task']} [{date_str} {time_str}]")
+            except (ValueError, KeyError):
+                # Fallback for old format or missing timestamp
+                print(f" {i}. {item['task']} [{item.get('ts', 'no timestamp')}]")
     else:
         print("\nBacklog is empty.")
 
@@ -119,8 +141,8 @@ def cmd_done(args):
 
     if choice.isdigit():
         index = int(choice) - 1
-        if 0 <= index < len(today["backlog"]):
-            task = today["backlog"].pop(index)
+        if 0 <= index < len(backlog):
+            task = backlog.pop(index)
             today["todo"] = task["task"]
             save(data)
             print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
@@ -139,7 +161,8 @@ def cmd_done(args):
 
 
 def cmd_status(_):
-    today = ensure_today(load())
+    data = load()
+    today = ensure_today(data)
     today_str = today_key()
     print(f"\n=== TODAY: {today_str} ===")
     for it in today["done"]:
@@ -159,51 +182,69 @@ def cmd_newday(_):
 def cmd_backlog(args):
     data = load()
     today = ensure_today(data)
+    backlog = get_backlog(data)
+    
     if args.subcmd == "add":
-        today["backlog"].append({"task": args.task,
-                                 "ts": datetime.now().time().isoformat(timespec='seconds')})
+        backlog.append({"task": args.task,
+                       "ts": datetime.now().isoformat(timespec='seconds')})
         save(data)
         print(f"{emoji('backlog_add')} Backlog task added: {args.task}")
     elif args.subcmd == "list":
         print(f"{emoji('backlog_list')} Backlog:")
-        for i, it in enumerate(today["backlog"],1):
-            print(f" {i}. {it['task']} [{it['ts']}]")
+        for i, it in enumerate(backlog, 1):
+            # Parse and format the timestamp to show date and time
+            try:
+                dt = datetime.fromisoformat(it['ts'])
+                date_str = dt.strftime('%m/%d')
+                time_str = dt.strftime('%H:%M')
+                print(f" {i}. {it['task']} [{date_str} {time_str}]")
+            except (ValueError, KeyError):
+                # Fallback for old format or missing timestamp
+                print(f" {i}. {it['task']} [{it.get('ts', 'no timestamp')}]")
     elif args.subcmd == "pull":
         if today["todo"]:
             print(f"{emoji('error')} Active task already exists: {today['todo']}")
             return
-        if not today["backlog"]:
+        if not backlog:
             print("No backlog items to pull.")
             return
         if hasattr(args, "index") and args.index:
             idx = args.index - 1
-            if idx < 0 or idx >= len(today["backlog"]):
+            if idx < 0 or idx >= len(backlog):
                 print(f"{emoji('error')} Invalid index: {args.index}")
                 return
         elif not USE_PLAIN:
             print(f"{emoji('backlog_list')} Backlog:")
-            for i, item in enumerate(today["backlog"], 1):
-                print(f" {i}. {repr(item['task'])} [{item['ts']}]")
+            for i, item in enumerate(backlog, 1):
+                # Parse and format the timestamp to show date and time
+                try:
+                    dt = datetime.fromisoformat(item['ts'])
+                    date_str = dt.strftime('%m/%d')
+                    time_str = dt.strftime('%H:%M')
+                    print(f" {i}. {repr(item['task'])} [{date_str} {time_str}]")
+                except (ValueError, KeyError):
+                    # Fallback for old format or missing timestamp
+                    print(f" {i}. {repr(item['task'])} [{item.get('ts', 'no timestamp')}]")
             try:
                 idx = int(input("Select task to pull [1-n]: ")) - 1
             except ValueError:
                 print(f"{emoji('error')} Invalid input. Must be a number.")
                 return
-            if idx < 0 or idx >= len(today["backlog"]):
+            if idx < 0 or idx >= len(backlog):
                 print(f"{emoji('error')} Invalid index selected.")
                 return
         else:
             idx = 0  # default to top item in plain/CI mode
 
-        task = today["backlog"].pop(idx)
+        task = backlog.pop(idx)
         today["todo"] = task["task"]
         save(data)
         print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
         cmd_status(args)
     elif args.subcmd == "remove":
         index = args.index - 1
-        if 0 <= index < len(today["backlog"]):
-            removed = today["backlog"].pop(index)
+        if 0 <= index < len(backlog):
+            removed = backlog.pop(index)
             save(data)
             print(f"{emoji('error')} Removed from backlog: {repr(removed['task'])}")
         else:
