@@ -89,63 +89,53 @@ def cmd_done(args):
     data = load()
     today = ensure_today(data)
     if not today["todo"]:
-        print(f"{emoji('error')} No active task to complete.")
-        return
+        print(f"{emoji('error')} No active task to complete."); return
 
-    # Mark task done
+    # Mark current task as done
     today["done"].append({
         "id": uuid.uuid4().hex[:8],
-        "task": today['todo'],
-        "ts": datetime.now().isoformat(timespec='seconds')
+        "task": today["todo"],
+        "ts": datetime.now().isoformat(timespec="seconds")
     })
     print(f"{emoji('complete')} Completed: {repr(today['todo'])}")
     today["todo"] = None
     save(data)
+    cmd_status(args)  # show summary
 
-    # Show summary
-    cmd_status(args)
-
-    # Skip interactive prompt in --plain mode
-    if USE_PLAIN:
-        return
-
+    # --- Show backlog and prompt next action ---
     if today["backlog"]:
-        print("\nWhat would you like to do next?")
-        print("[b] Select task from backlog")
-        print("[n] Add a new task")
-        print("[Enter] Skip")
+        print(f"\n{emoji('backlog_list')} Backlog:")
+        for i, item in enumerate(today["backlog"], 1):
+            print(f" {i}. {item['task']} [{item['ts']}]")
+    else:
+        print("\nBacklog is empty.")
 
-        choice = input("Enter your choice: ").strip().lower()
+    print("\nSelect next task:")
+    print(" - Enter a number to pull from backlog")
+    print(" - [n] Add a new task")
+    print(" - [Enter] to skip")
 
-        if choice == "b":
-            for i, item in enumerate(today["backlog"], 1):
-                print(f" {i}. {item['task']} [{item['ts']}]")
-            try:
-                idx = input("Select a task [1-n]: ").strip()
-                if idx == "":
-                    print("Skipped selection.")
-                    return
-                idx = int(idx) - 1
-                if 0 <= idx < len(today["backlog"]):
-                    task = today["backlog"].pop(idx)
-                    today["todo"] = task["task"]
-                    print(f"{emoji('backlog_pull')} Pulled: {task['task']}")
-                    save(data)
-                    cmd_status(args)
-            except ValueError:
-                print(f"{emoji('error')} Invalid input.")
+    choice = input("> ").strip()
 
-        elif choice == "n":
-            new_task = input("Enter new task: ").strip()
-            if new_task:
-                today["todo"] = new_task
-                save(data)
-                print(f"{emoji('added')} Added: {new_task}")
-                cmd_status(args)
-        elif choice == "":
-            print("No new task added.")
+    if choice.isdigit():
+        index = int(choice) - 1
+        if 0 <= index < len(today["backlog"]):
+            task = today["backlog"].pop(index)
+            today["todo"] = task["task"]
+            save(data)
+            print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+            cmd_status(args)
         else:
-            print("Unknown input. Skipping.")
+            print(f"{emoji('error')} Invalid backlog index.")
+    elif choice.lower() == "n":
+        new_task = input("Enter new task: ").strip()
+        if new_task:
+            today["todo"] = new_task
+            save(data)
+            print(f"{emoji('added')} Added: {repr(new_task)}")
+            cmd_status(args)
+    else:
+        print("No new task added.")
 
 
 def cmd_status(_):
