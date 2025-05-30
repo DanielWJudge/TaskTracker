@@ -100,6 +100,23 @@ def test_done_prompt_pull():
     status = run(f"python {script_path} --store {store} status")
     assert "Pulled task" in status.stdout
 
+def test_backlog_remove():
+    store = fresh_store()
+    run(f"python {script_path} --store {store} backlog add 'Task One'")
+    run(f"python {script_path} --store {store} backlog add 'Task Two'")
+    result = run(f"python {script_path} --store {store} backlog list")
+    assert "Task One" in result.stdout
+    assert "Task Two" in result.stdout
+
+    # Remove second task
+    result = run(f"python {script_path} --store {store} backlog remove 2")
+    assert "Removed from backlog" in result.stdout
+    assert "Task Two" in result.stdout
+
+    # Ensure only Task One remains
+    result = run(f"python {script_path} --store {store} backlog list")
+    assert "Task One" in result.stdout
+    assert "Task Two" not in result.stdout
 
 def main():
     warn_if_non_utf8()
@@ -107,6 +124,7 @@ def main():
     test_status()
     test_backlog()
     test_done_prompt_pull()
+    test_backlog_remove()
     print("✅ ALL TESTS PASSED")
 
 if __name__ == "__main__":
