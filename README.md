@@ -66,6 +66,9 @@ python tasker_fixed.py backlog add "Write unit tests"
 # list backlog
 python tasker_fixed.py backlog list
 
+# remove specific backlog item by index
+python tasker.py backlog remove 2
+
 # pull next task when ready
 python tasker_fixed.py backlog pull
 ```
@@ -103,6 +106,7 @@ python tasker_fixed.py --plain status   # disables color + emoji
 
 ## 🗺️ Roadmap
 
+* [x] Add backlog remove command
 * [ ] Task categories and priority tags
 * [ ] Ability to mark tasks as no longer needed
 * [ ] Sort backlog by due date, project, or priority
