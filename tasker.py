@@ -19,8 +19,6 @@ import uuid
 from datetime import datetime, date
 from pathlib import Path
 
-from click import style
-
 # ===== Global toggles =====
 USE_PLAIN = False
 STORE: Path = Path("storage.json")
@@ -36,7 +34,7 @@ EMOJI = {
     "backlog_list": "📋", "backlog_pull": "📤", "newday": "🌅", "error": "❌"
 }
 
-def style_option(s):
+def style(s):
     """Return styled text or empty string if plain mode is enabled."""
     return "" if USE_PLAIN else s
 
@@ -44,7 +42,7 @@ def emoji(k):
     """Return emoji for given key or empty string if plain mode is enabled."""
     return "" if USE_PLAIN else EMOJI.get(k, "")
 
-RESET, CYAN, GRAY, BOLD, GREEN = map(style_option, (RESET, CYAN, GRAY, BOLD, GREEN))
+RESET, CYAN, GRAY, BOLD, GREEN = map(style, (RESET, CYAN, GRAY, BOLD, GREEN))
 
 # ===== Display/Formatting helpers =====
 
@@ -52,8 +50,8 @@ def format_backlog_timestamp(ts):
     """Format timestamp for display in backlog listings."""
     try:
         dt = datetime.fromisoformat(ts)
-        date_str = dt.strftime('%m/%d')
-        time_str = dt.strftime('%H:%M')
+        date_str = dt.strftime(Config.DATE_FORMAT)
+        time_str = dt.strftime(Config.TIME_FORMAT)
         return f"[{date_str} {time_str}]"
     except (ValueError, KeyError):
         return f"[{ts if ts else 'no timestamp'}]"
@@ -65,17 +63,134 @@ def print_backlog_list(backlog, title="Backlog"):
         timestamp = format_backlog_timestamp(item.get('ts', ''))
         print(f" {i}. {item['task']} {timestamp}")
 
+# ===== Configuration =====
+class Config:
+    """Configuration constants for TaskTracker."""
+    MAX_TASK_LENGTH = 500
+    STORAGE_ENCODING = 'utf-8'
+    DATE_FORMAT = '%m/%d'
+    TIME_FORMAT = '%H:%M'
+
+# ===== Input Validation =====
+
+def validate_task_name(task):
+    """
+    Validate task name input.
+    
+    Args:
+        task: The task name to validate
+        
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+    """
+    if not task:
+        return False, "Task name cannot be empty."
+
+    task_stripped = task.strip()
+    if not task_stripped:
+        return False, "Task name cannot be only whitespace."
+
+    if len(task_stripped) > Config.MAX_TASK_LENGTH:
+        return False, f"Task name too long (max {Config.MAX_TASK_LENGTH} characters)."
+
+    # Check for potentially problematic characters
+    if '\n' in task_stripped or '\r' in task_stripped:
+        return False, "Task name cannot contain line breaks."
+
+    return True, ""
+
+def safe_input(prompt, validator=None):
+    """
+    Get user input with optional validation.
+    
+    Args:
+        prompt: The input prompt to display
+        validator: Optional function that takes input and returns (valid, error_msg)
+        
+    Returns:
+        str: The validated input, or None if user cancels/validation fails
+    """
+    try:
+        user_input = input(prompt).strip()
+        if validator:
+            is_valid, error_msg = validator(user_input)
+            if not is_valid:
+                print(f"{emoji('error')} {error_msg}")
+                return None
+        return user_input
+    except (KeyboardInterrupt, EOFError):
+        print(f"\n{emoji('error')} Input cancelled.")
+        return None
+
+def safe_int_input(prompt, min_val=None, max_val=None):
+    """
+    Get integer input with validation.
+    
+    Args:
+        prompt: The input prompt to display
+        min_val: Minimum allowed value (inclusive)
+        max_val: Maximum allowed value (inclusive)
+        
+    Returns:
+        int or None: The validated integer, or None if invalid/cancelled
+    """
+    try:
+        user_input = input(prompt).strip()
+        if not user_input:
+            return None
+            
+        value = int(user_input)
+        if min_val is not None and value < min_val:
+            print(f"{emoji('error')} Value must be at least {min_val}.")
+            return None
+        if max_val is not None and value > max_val:
+            print(f"{emoji('error')} Value must be at most {max_val}.")
+            return None
+        return value
+    except ValueError:
+        print(f"{emoji('error')} Invalid input. Must be a number.")
+        return None
+    except (KeyboardInterrupt, EOFError):
+        print(f"\n{emoji('error')} Input cancelled.")
+        return None
+
 # ===== Storage helpers =====
 
 def load():
     """Load data from storage file, returning empty dict if file doesn't exist."""
-    if STORE.exists():
-        return json.loads(STORE.read_text(encoding='utf-8'))
-    return {}
+    try:
+        if STORE.exists():
+            content = STORE.read_text(encoding=Config.STORAGE_ENCODING)
+            return json.loads(content)
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"{emoji('error')} Storage file corrupted: {e}")
+        print(f"Creating backup and starting fresh...")
+        # Create backup of corrupted file
+        backup_path = STORE.with_suffix('.json.backup')
+        try:
+            STORE.rename(backup_path)
+            print(f"Corrupted file backed up to: {backup_path}")
+        except OSError:
+            print("Could not create backup of corrupted file.")
+        return {}
+    except (OSError, PermissionError) as e:
+        print(f"{emoji('error')} Cannot read storage file: {e}")
+        return {}
 
 def save(data):
-    """Save data to storage file with UTF-8 encoding."""
-    STORE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+    """Save data to storage file with UTF-8 encoding and error handling."""
+    try:
+        content = json.dumps(data, indent=2)
+        STORE.write_text(content, encoding=Config.STORAGE_ENCODING)
+        return True
+    except (OSError, PermissionError) as e:
+        print(f"{emoji('error')} Cannot save to storage file: {e}")
+        print("Changes will be lost when the program exits.")
+        return False
+    except (TypeError, ValueError) as e:
+        print(f"{emoji('error')} Data serialization error: {e}")
+        return False
 
 def today_key():
     """Function to return today's date in a string."""
@@ -86,10 +201,10 @@ def ensure_today(data):
     # Ensure global backlog exists
     if "backlog" not in data:
         data["backlog"] = []
-
+    
     # Ensure today's entry exists
     today = data.setdefault(today_key(), {"todo": None, "done": []})
-
+    
     return today
 
 def get_backlog(data):
@@ -109,7 +224,7 @@ def complete_current_task(today):
 def handle_next_task_selection(data, today):
     """Handle user selection of next task after completing current one."""
     backlog = get_backlog(data)
-
+    
     # Show current backlog
     if backlog:
         print()
@@ -122,27 +237,28 @@ def handle_next_task_selection(data, today):
     print(" - [n] Add a new task")
     print(" - [Enter] to skip")
 
-    choice = input("> ").strip()
+    choice = safe_input("> ")
+    if choice is None:
+        return  # User cancelled or error occurred
 
     if choice.isdigit():
         index = int(choice) - 1
         if 0 <= index < len(backlog):
             task = backlog.pop(index)
             today["todo"] = task["task"]
-            save(data)
-            print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
-            cmd_status(None)  # Show status after pulling
+            if save(data):
+                print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+                cmd_status(None)  # Show status after pulling
         else:
             print(f"{emoji('error')} Invalid backlog index.")
     elif choice.lower() == "n":
-        new_task = input("Enter new task: ").strip()
+        new_task = safe_input("Enter new task: ", validate_task_name)
         if new_task:
             today["todo"] = new_task
-            save(data)
-            print(f"{emoji('added')} Added: {repr(new_task)}")
-            cmd_status(None)  # Show status after adding
-    else:
-        print("No new task added.")
+            if save(data):
+                print(f"{emoji('added')} Added: {repr(new_task)}")
+                cmd_status(None)  # Show status after adding
+    # Empty choice (Enter) - skip, no action needed
 
 # ===== Command functions =====
 def prompt_next_action(data):
@@ -175,22 +291,32 @@ def prompt_next_action(data):
 
 def cmd_add(args):
     """Add a new task or offer to add to backlog if active task exists."""
-    data = load()
-    today = ensure_today(data)
-    if today["todo"]:
-        print(f"{emoji('error')} Active task already exists: {today['todo']}")
-        response = input(f"{style(BOLD)}➕ Would you like to add '{args.task}' to the backlog instead? [y/N]: {style(RESET)}")
-        if response.strip().lower() == 'y':
-            ts = datetime.now().isoformat(timespec='seconds')
-            get_backlog(data).append({"task": args.task, "ts": ts})
-            save(data)
-            print(f"{emoji('backlog_add')} Added to backlog: {repr(args.task)}")
+    # Validate task name
+    is_valid, error_msg = validate_task_name(args.task)
+    if not is_valid:
+        print(f"{emoji('error')} {error_msg}")
         return
 
-    today["todo"] = args.task
-    save(data)
-    print(f"{emoji('added')} Added: {args.task}")
-    cmd_status(args)
+    data = load()
+    today = ensure_today(data)
+    
+    # Clean the task name
+    clean_task = args.task.strip()
+    
+    if today["todo"]:
+        print(f"{emoji('error')} Active task already exists: {today['todo']}")
+        response = safe_input(f"➕ Would you like to add '{clean_task}' to the backlog instead? [y/N]: ")
+        if response and response.lower() == 'y':
+            ts = datetime.now().isoformat(timespec='seconds')
+            get_backlog(data).append({"task": clean_task, "ts": ts})
+            if save(data):
+                print(f"{emoji('backlog_add')} Added to backlog: {repr(clean_task)}")
+        return
+
+    today["todo"] = clean_task
+    if save(data):
+        print(f"{emoji('added')} Added: {clean_task}")
+        cmd_status(args)
 
 def cmd_done(args):
     data = load()
