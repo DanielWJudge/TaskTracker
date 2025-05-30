@@ -22,6 +22,7 @@ Dog‑fooded daily, designed to live in your terminal, ready in < 1 s.
 | Feature             | Details                                                                 |
 |---------------------|-------------------------------------------------------------------------|
 | 📝 One active task  | Keeps your brain on one thing.                                           |
+| 🔁 Interactive prompts  | After marking a task `done`, choose the next task interactively — select from backlog, type a new one, or skip with `Enter`.                                           |
 | 📋 Backlog          | `backlog add`, `backlog list`, `backlog pull` to manage future tasks.   |
 | ⏰ Timestamps        | Completion time recorded in ISO format.                                 |
 | 🎨 ANSI colors       | Bold cyan for active task, green for completed.                         |
@@ -51,32 +52,34 @@ python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\acti
 
 ```bash
 # start fresh day
-python tasker_fixed.py newday
+python tasker.py newday
 
 # add your first task
-python tasker_fixed.py add "Write killer README"
+python tasker.py add "Write killer README"
 
 # finish it
-ython tasker_fixed.py done  # shows status automatically
+python tasker.py done  # shows status automatically
+# you'll now be prompted:
+# [b] select from backlog  |  [n] new task  |  [Enter] skip
 
 # add backlog items
-python tasker_fixed.py backlog add "Refactor parser"
-python tasker_fixed.py backlog add "Write unit tests"
+python tasker.py backlog add "Refactor parser"
+python tasker.py backlog add "Write unit tests"
 
 # list backlog
-python tasker_fixed.py backlog list
+python tasker.py backlog list
 
 # remove specific backlog item by index
 python tasker.py backlog remove 2
 
 # pull next task when ready
-python tasker_fixed.py backlog pull
+python tasker.py backlog pull
 ```
 
 ### Plain‑text / CI mode
 
 ```bash
-python tasker_fixed.py --plain status   # disables color + emoji
+python tasker.py --plain status   # disables color + emoji
 ```
 
 ---
@@ -101,6 +104,10 @@ python tasker_fixed.py --plain status   # disables color + emoji
 * Every CLI command loads → mutates → saves atomically
 * Text, emoji, and color are all optional
 * ISO timestamps are used for consistency and grepability
+* After completing a task, the CLI **asks what you'd like to do next**:
+  - `[b]` → shows a numbered list of backlog items to pick from
+  - `[n]` → lets you enter a new active task directly
+  - `[Enter]` → skips adding a new task
 
 ---
 
@@ -121,7 +128,7 @@ See [`TODO.md`](TODO.md) for development notes.
 ## 🧪 Running Tests
 
 ```bash
-python test_tasker_fixed.py   # uses its own test_storage.json
+python test_tasker.py   # uses its own test_storage.json
 ```
 Runs in plain mode with its own test_storage.json. Verifies:
 * Adding a task

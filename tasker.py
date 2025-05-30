@@ -89,30 +89,64 @@ def cmd_done(args):
     data = load()
     today = ensure_today(data)
     if not today["todo"]:
-        print(f"{emoji('error')} No active task to complete."); return
-    today["done"].append({"id": uuid.uuid4().hex[:8], "task": today['todo'],
-                           "ts": datetime.now().isoformat(timespec='seconds')})
+        print(f"{emoji('error')} No active task to complete.")
+        return
+
+    # Mark task done
+    today["done"].append({
+        "id": uuid.uuid4().hex[:8],
+        "task": today['todo'],
+        "ts": datetime.now().isoformat(timespec='seconds')
+    })
     print(f"{emoji('complete')} Completed: {repr(today['todo'])}")
     today["todo"] = None
     save(data)
-    cmd_status(args)  # show summary
 
-    # --- NEW: interactive prompt ---
-    action, payload = prompt_next_action(today)
-    if action == "pull":
-        if not today["backlog"]:
-            print("Backlog is empty.")
+    # Show summary
+    cmd_status(args)
+
+    # Skip interactive prompt in --plain mode
+    if USE_PLAIN:
+        return
+
+    if today["backlog"]:
+        print("\nWhat would you like to do next?")
+        print("[b] Select task from backlog")
+        print("[n] Add a new task")
+        print("[Enter] Skip")
+
+        choice = input("Enter your choice: ").strip().lower()
+
+        if choice == "b":
+            for i, item in enumerate(today["backlog"], 1):
+                print(f" {i}. {item['task']} [{item['ts']}]")
+            try:
+                idx = input("Select a task [1-n]: ").strip()
+                if idx == "":
+                    print("Skipped selection.")
+                    return
+                idx = int(idx) - 1
+                if 0 <= idx < len(today["backlog"]):
+                    task = today["backlog"].pop(idx)
+                    today["todo"] = task["task"]
+                    print(f"{emoji('backlog_pull')} Pulled: {task['task']}")
+                    save(data)
+                    cmd_status(args)
+            except ValueError:
+                print(f"{emoji('error')} Invalid input.")
+
+        elif choice == "n":
+            new_task = input("Enter new task: ").strip()
+            if new_task:
+                today["todo"] = new_task
+                save(data)
+                print(f"{emoji('added')} Added: {new_task}")
+                cmd_status(args)
+        elif choice == "":
+            print("No new task added.")
         else:
-            task = today["backlog"].pop(0)
-            today["todo"] = task["task"]
-            save(data)
-            print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
-            cmd_status(args)
-    elif action == "add":
-        today["todo"] = payload
-        save(data)
-        print(f"{emoji('added')} Added: {repr(payload)}")
-        cmd_status(args)
+            print("Unknown input. Skipping.")
+
 
 def cmd_status(_):
     today = ensure_today(load())
@@ -146,13 +180,36 @@ def cmd_backlog(args):
             print(f" {i}. {it['task']} [{it['ts']}]")
     elif args.subcmd == "pull":
         if today["todo"]:
-            print(f"{emoji('error')} Active task already exists: {today['todo']}"); return
+            print(f"{emoji('error')} Active task already exists: {today['todo']}")
+            return
         if not today["backlog"]:
-            print("No backlog items to pull."); return
-        task = today["backlog"].pop(0)
-        today["todo"] = task['task']
+            print("No backlog items to pull.")
+            return
+        if hasattr(args, "index") and args.index:
+            idx = args.index - 1
+            if idx < 0 or idx >= len(today["backlog"]):
+                print(f"{emoji('error')} Invalid index: {args.index}")
+                return
+        elif not USE_PLAIN:
+            print(f"{emoji('backlog_list')} Backlog:")
+            for i, item in enumerate(today["backlog"], 1):
+                print(f" {i}. {repr(item['task'])} [{item['ts']}]")
+            try:
+                idx = int(input("Select task to pull [1-n]: ")) - 1
+            except ValueError:
+                print(f"{emoji('error')} Invalid input. Must be a number.")
+                return
+            if idx < 0 or idx >= len(today["backlog"]):
+                print(f"{emoji('error')} Invalid index selected.")
+                return
+        else:
+            idx = 0  # default to top item in plain/CI mode
+
+        task = today["backlog"].pop(idx)
+        today["todo"] = task["task"]
         save(data)
-        print(f"{emoji('backlog_pull')} Pulled from backlog: {task['task']}")
+        print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+        cmd_status(args)
     elif args.subcmd == "remove":
         index = args.index - 1
         if 0 <= index < len(today["backlog"]):
@@ -182,7 +239,9 @@ def build_parser():
     b_a.add_argument("task", nargs="+")
     b_a.set_defaults(func=cmd_backlog)
     b_sub.add_parser("list").set_defaults(func=cmd_backlog)
-    b_sub.add_parser("pull").set_defaults(func=cmd_backlog)
+    b_pull = b_sub.add_parser("pull", help="Pull next backlog item as active")
+    b_pull.add_argument("--index", type=int, help="Select specific backlog item by 1-based index")
+    b_pull.set_defaults(func=cmd_backlog)
     b_remove = b_sub.add_parser("remove", help="Remove a backlog item by index")
     b_remove.add_argument("index", type=int, help="1-based index of item to remove")
     b_remove.set_defaults(func=cmd_backlog)
