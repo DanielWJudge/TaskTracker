@@ -107,10 +107,12 @@ def cmd_done(args):
             today["todo"] = task["task"]
             save(data)
             print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+            cmd_status(args)
     elif action == "add":
         today["todo"] = payload
         save(data)
         print(f"{emoji('added')} Added: {repr(payload)}")
+        cmd_status(args)
 
 def cmd_status(_):
     today = ensure_today(load())
