@@ -1,157 +1,312 @@
 # TaskTracker
 
-_A minimal, one‑task‑at‑a‑time CLI tracker with backlog, color/emoji output, and plain‑text mode._
+_A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and ships faster._
+
+[![Tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)]()
+[![Python](https://img.shields.io/badge/python-3.8+-blue)]()
 
 ---
 
 ## 🚀 Why TaskTracker?
 
-Most task apps encourage **lists**; TaskTracker enforces **focus**:
+**Stop juggling endless task lists. Start shipping.**
 
-1. **Add exactly one active task.**
-2. Do it, mark it **done** (✅).
-3. Choose your next task or pull from a **backlog**.
-4. Start every day with a clean slate while yesterday’s wins are saved.
+Most productivity apps encourage **endless lists** that overwhelm your brain. TaskTracker enforces **laser focus**:
 
-Dog‑fooded daily, designed to live in your terminal, ready in < 1 s.
+1. **One active task.** Period.
+2. Complete it, mark it **done** ✅
+3. Choose what's next from your **backlog** or add something new
+4. Repeat. Ship faster.
 
----
-
-## ✨ Features
-
-| Feature             | Details                                                                 |
-|---------------------|-------------------------------------------------------------------------|
-| 📝 One active task  | Keeps your brain on one thing.                                           |
-| 🔁 Interactive prompts  | After marking a task `done`, choose the next task interactively — select from backlog, type a new one, or skip with `Enter`.                                           |
-| 📋 Backlog          | `backlog add`, `backlog list`, `backlog pull` to manage future tasks.   |
-| ⏰ Timestamps        | Completion time recorded in ISO format.                                 |
-| 🎨 ANSI colors       | Bold cyan for active task, green for completed.                         |
-| 🧼 Emoji output      | Motivating icons! Disable with `--plain`.                               |
-| 💾 JSON storage      | Human-readable file per day. Easy to back up or inspect.                |
-| 🔄 `--store PATH`    | Point to a custom file (useful for tests or multiple contexts).         |
-| 🧪 Testable design   | Fully covered with `test_tracker.py` (plain mode auto-applied).         |
-| 🧠 Thoughtful UX     | After `done`, it asks what to do next—backlog pull or quit.             |
+**Built by developers, for developers.** Ready in < 1 second. Runs everywhere.
 
 ---
 
-## 🛠️ Installation
+## ✨ Features That Matter
 
-```bash
-# Clone
-git clone git@github.com:<you>/TaskTracker.git && cd TaskTracker
-
-# (Optional) create virtual env
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# No dependencies required
-```
+| Feature | Why It Matters |
+|---------|---------------|
+| 🎯 **Single Active Task** | Your brain works better with one focus. No context switching. |
+| 🔄 **Smart Completion Flow** | When you finish a task, TaskTracker asks: "What's next?" |
+| 📋 **Persistent Backlog** | Future tasks survive across days. Never lose track of what matters. |
+| ⚡ **Instant Startup** | No databases, no cloud sync delays. Pure speed. |
+| 🌍 **Universal Compatibility** | Windows, macOS, Linux. Command Prompt, PowerShell, Terminal. |
+| 🛡️ **Bulletproof** | 107 automated tests. Input validation. Error recovery. |
+| 🎨 **Beautiful Output** | Color + emoji when available, clean ASCII when needed. |
+| 📦 **Zero Dependencies** | Pure Python. No external libraries. No complexity. |
 
 ---
 
 ## ⚡ Quick Start
 
 ```bash
-# start fresh day
+# Clone and enter
+git clone https://github.com/yourusername/TaskTracker.git
+cd TaskTracker
+
+# Optional: Virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Start fresh
 python tasker.py newday
 
-# add your first task
-python tasker.py add "Write killer README"
+# Add your most important task
+python tasker.py add "Ship the new feature"
 
-# finish it
-python tasker.py done  # shows status automatically
-# you'll now be prompted:
-# [b] select from backlog  |  [n] new task  |  [Enter] skip
+# Focus. Work. Complete.
+python tasker.py done
+# → TaskTracker asks: What's next?
+# → [1] Pull from backlog | [n] New task | [Enter] Take a break
 
-# add backlog items
-python tasker.py backlog add "Refactor parser"
-python tasker.py backlog add "Write unit tests"
+# Build your backlog for tomorrow
+python tasker.py backlog add "Refactor authentication"
+python tasker.py backlog add "Write deployment docs"
+python tasker.py backlog add "Review team PRs"
 
-# list backlog
-python tasker.py backlog list
-
-# remove specific backlog item by index
-python tasker.py backlog remove 2
-
-# pull next task when ready
-python tasker.py backlog pull
+# See everything at a glance
+python tasker.py status
 ```
 
-### Plain‑text / CI mode
+### Pro Tips
 
 ```bash
-python tasker.py --plain status   # disables color + emoji
+# Work offline, sync never
+python tasker.py --plain status   # Clean output for scripts/CI
+
+# Custom storage location
+python tasker.py --store ~/work/tasks.json add "Client work"
+
+# Pull specific backlog item
+python tasker.py backlog pull --index 3
+
+# Remove outdated backlog items
+python tasker.py backlog remove 2
 ```
 
 ---
 
 ## 🧠 How It Works
 
-* **Data model**
-  ```jsonc
-  {
-    "2025-05-28": {
-      "todo": "Write killer README",
-      "done": [
-        {"id": "a1b2c3d4", "task": "scaffold tests", "ts": "2025-05-28T08:12:45"}
-      ],
-      "backlog": [
-        {"task": "Refactor parser", "ts": "08:30:10"}
-      ]
-    }
+**Simple data model. Powerful workflow.**
+
+```json
+{
+  "backlog": [
+    {"task": "Future important work", "ts": "2025-05-30T14:30:00"}
+  ],
+  "2025-05-30": {
+    "todo": "Ship the new feature",
+    "done": [
+      {"id": "a1b2c3d4", "task": "Fix critical bug", "ts": "2025-05-30T09:15:30"}
+    ]
   }
-  ```
-* Stored in storage.json (or --store yourfile.json)
-* Every CLI command loads → mutates → saves atomically
-* Text, emoji, and color are all optional
-* ISO timestamps are used for consistency and grepability
-* After completing a task, the CLI **asks what you'd like to do next**:
-  - `[b]` → shows a numbered list of backlog items to pick from
-  - `[n]` → lets you enter a new active task directly
-  - `[Enter]` → skips adding a new task
+}
+```
+
+**The Magic:**
+- **Global backlog** persists across days
+- **Daily completion tracking** with timestamps
+- **Atomic file operations** - never lose data
+- **Human-readable JSON** - easy to backup/inspect
+- **Intelligent prompting** - always knows what to ask next
+
+---
+
+## 🛡️ Battle-Tested Quality
+
+TaskTracker isn't just another weekend project. It's **production-ready**:
+
+- ✅ **107 automated tests** covering every feature
+- ✅ **Cross-platform compatibility** (Windows/macOS/Linux)
+- ✅ **Unicode safety** with graceful ASCII fallbacks
+- ✅ **Input validation** prevents crashes and data corruption
+- ✅ **Error recovery** with automatic backups
+- ✅ **Memory-safe operations** - no data loss scenarios
+
+```bash
+# Run the full test suite
+python -m pytest
+# 107 tests pass in < 3 seconds
+```
+
+---
+
+## 🎨 Beautiful, Accessible Output
+
+**Rich when possible. Clean when needed.**
+
+### With Colors & Emoji
+```
+🌅 New day initialized -> 2025-05-30
+
+=== TODAY: 2025-05-30 ===
+✅ Fix critical bug [09:15:30]
+✅ Ship new feature [14:22:15]
+🔄 Write deployment docs
+===========================
+
+📋 Backlog:
+ 1. Refactor authentication [05/29 16:45]
+ 2. Review team PRs [05/30 11:20]
+```
+
+### Plain Mode (--plain)
+```
+[NEW] New day initialized -> 2025-05-30
+
+=== TODAY: 2025-05-30 ===
+[OK] Fix critical bug [09:15:30]
+[OK] Ship new feature [14:22:15]
+Write deployment docs
+===========================
+
+[-] Backlog:
+ 1. Refactor authentication [05/29 16:45]
+ 2. Review team PRs [05/30 11:20]
+```
+
+---
+
+## 📚 Complete Command Reference
+
+### Core Workflow
+```bash
+python tasker.py newday                    # Start fresh day
+python tasker.py add "Most important task" # Set your focus
+python tasker.py done                      # Complete and choose next
+python tasker.py status                    # See everything
+```
+
+### Backlog Management
+```bash
+python tasker.py backlog add "Future task"    # Add to backlog
+python tasker.py backlog list                 # View all backlog items
+python tasker.py backlog pull                 # Interactive: choose from backlog
+python tasker.py backlog pull --index 2       # Pull specific item
+python tasker.py backlog remove 3             # Remove by index
+```
+
+### Options
+```bash
+--plain              # Disable colors/emoji (great for scripts)
+--store PATH         # Use custom storage file
+```
+
+---
+
+## 🔧 Development
+
+TaskTracker welcomes contributions! The codebase is clean, tested, and documented.
+
+```bash
+# Set up development environment
+git clone https://github.com/yourusername/TaskTracker.git
+cd TaskTracker
+python -m venv .venv
+source .venv/bin/activate
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest                    # All tests
+pytest -v                 # Verbose output
+pytest --cov=tasker       # With coverage report
+
+# Code structure
+tasker.py              # Main application (550 lines, well-documented)
+tests/
+├── test_commands.py   # Command function tests (29 tests)
+├── test_integration.py # End-to-end workflow tests (19 tests)
+├── test_storage.py    # File operations tests (11 tests)
+├── test_utils.py      # Display/formatting tests (35 tests)
+└── test_validation.py # Input validation tests (13 tests)
+```
+
+### Testing Philosophy
+
+- **Unit tests** for individual functions
+- **Integration tests** for real CLI workflows  
+- **Error condition testing** for robustness
+- **Cross-platform validation** for reliability
+
+Every feature is tested. Every edge case is covered.
 
 ---
 
 ## 🗺️ Roadmap
 
-* [x] Add backlog remove command
-* [ ] Task categories and priority tags
-* [ ] Ability to mark tasks as no longer needed
-* [ ] Sort backlog by due date, project, or priority
-* [ ] Built-in Pomodoro timer with progress bar
-* [ ] Track estimated vs. actual time
-* [ ] AI-powered backlog prioritization (stretch)
+**Proven foundation. Exciting future.**
 
-See [`TODO.md`](TODO.md) for development notes.
+### ✅ Completed (v1.0)
+- [x] Core task management workflow
+- [x] Persistent backlog across days
+- [x] Interactive completion prompts
+- [x] Cross-platform compatibility
+- [x] Comprehensive test suite
+- [x] Input validation & error handling
+- [x] Unicode/Windows support
 
----
+### 🎯 Next Up (v2.0)
+- [ ] **Task categories and tags** (`@work`, `@personal`, `#urgent`)
+- [ ] **Due dates for backlog items** with smart sorting
+- [ ] **Built-in Pomodoro timer** with progress tracking
+- [ ] **Time estimation vs actual** reporting
+- [ ] **Weekly/monthly completion analytics**
+- [ ] **Task templates** for recurring workflows
 
-## 🧪 Running Tests
-
-```bash
-python test_tasker.py   # uses its own test_storage.json
-```
-Runs in plain mode with its own test_storage.json. Verifies:
-* Adding a task
-* Status rendering
-* Backlog add/list/pull
-* Clean exit and atomic writes
-
-All core flows must print **✅ ALL TESTS PASSED**.
-
----
-
-## 🙌 Contributing
-
-PRs and issues welcome. Please run tests and add new ones for any feature.
+### 🔮 Future Ideas
+- [ ] **Team collaboration features** (shared backlogs)
+- [ ] **AI-powered task prioritization** 
+- [ ] **Integration with GitHub issues**
+- [ ] **Slack/Discord notifications**
 
 ---
 
-## 📝 License
+## 💬 Philosophy
 
-MIT. Use it, tweak it, share it.
+> "The secret to getting ahead is getting started. The secret to getting started is breaking your complex overwhelming tasks into small manageable tasks, and then starting on the first one." - Mark Twain
+
+TaskTracker embodies this philosophy in code:
+
+- **Simplicity over complexity** - One task, one focus
+- **Shipping over planning** - Less organizing, more doing  
+- **Progress over perfection** - Done is better than perfect
+- **Focus over multitasking** - Depth over breadth
+
+---
+
+## 📄 License
+
+MIT License - Use it, modify it, ship it.
 
 ---
 
 ## 👤 Author
 
-Created by **Daniel Judge** to fight multitasking overload and ship faster.
+**Created by Daniel Judge** to fight productivity theater and ship real value.
+
+*"Most task apps make you feel busy. TaskTracker makes you productive."*
+
+---
+
+## 🙌 Contributing
+
+Found a bug? Have an idea? PRs and issues welcome!
+
+1. **Fork the repo**
+2. **Add tests** for your feature
+3. **Make sure all 107 tests pass**
+4. **Submit a PR** with a clear description
+
+**Questions?** Open an issue. **Want to help?** Check the roadmap above.
+
+---
+
+## ⭐ Star This Repo
+
+If TaskTracker helps you ship faster, **star this repo** to help others discover it!
+
+**[⭐ Star on GitHub](https://github.com/yourusername/TaskTracker)**
