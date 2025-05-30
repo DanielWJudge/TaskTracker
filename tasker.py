@@ -16,52 +16,14 @@ Usage:
 import argparse
 import json
 import uuid
+import sys
+import locale
 from datetime import datetime, date
 from pathlib import Path
 
 # ===== Global toggles =====
 USE_PLAIN = False
 STORE: Path = Path("storage.json")
-
-# ===== Styling helpers =====
-RESET = "\033[0m"
-CYAN = "\033[96m"
-GREEN = "\033[92m"
-GRAY = "\033[90m"
-BOLD = "\033[1m"
-EMOJI = {
-    "added": "✅", "complete": "🎉", "backlog_add": "📥",
-    "backlog_list": "📋", "backlog_pull": "📤", "newday": "🌅", "error": "❌"
-}
-
-def style(s):
-    """Return styled text or empty string if plain mode is enabled."""
-    return "" if USE_PLAIN else s
-
-def emoji(k):
-    """Return emoji for given key or empty string if plain mode is enabled."""
-    return "" if USE_PLAIN else EMOJI.get(k, "")
-
-RESET, CYAN, GRAY, BOLD, GREEN = map(style, (RESET, CYAN, GRAY, BOLD, GREEN))
-
-# ===== Display/Formatting helpers =====
-
-def format_backlog_timestamp(ts):
-    """Format timestamp for display in backlog listings."""
-    try:
-        dt = datetime.fromisoformat(ts)
-        date_str = dt.strftime(Config.DATE_FORMAT)
-        time_str = dt.strftime(Config.TIME_FORMAT)
-        return f"[{date_str} {time_str}]"
-    except (ValueError, KeyError):
-        return f"[{ts if ts else 'no timestamp'}]"
-
-def print_backlog_list(backlog, title="Backlog"):
-    """Print formatted backlog with consistent styling."""
-    print(f"{emoji('backlog_list')} {title}:")
-    for i, item in enumerate(backlog, 1):
-        timestamp = format_backlog_timestamp(item.get('ts', ''))
-        print(f" {i}. {item['task']} {timestamp}")
 
 # ===== Configuration =====
 class Config:
@@ -70,6 +32,84 @@ class Config:
     STORAGE_ENCODING = 'utf-8'
     DATE_FORMAT = '%m/%d'
     TIME_FORMAT = '%H:%M'
+
+# ===== Console setup =====
+def setup_console_encoding():
+    """Set up console encoding for better Unicode support."""
+    if sys.platform == "win32":
+        try:
+            # Try to enable UTF-8 mode on Windows
+            import codecs
+            if hasattr(sys.stdout, 'detach'):
+                sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
+            if hasattr(sys.stderr, 'detach'):
+                sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
+        except:
+            # If that fails, we'll rely on safe_print fallbacks
+            pass
+
+def safe_print(text, **kwargs):
+    """Print text with Unicode error handling."""
+    try:
+        print(text, **kwargs)
+    except UnicodeEncodeError:
+        # Fallback: encode to ASCII with replacement characters
+        safe_text = text.encode('ascii', errors='replace').decode('ascii')
+        print(safe_text, **kwargs)
+
+# ===== Styling helpers =====
+RESET = "\033[0m"
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+GRAY = "\033[90m"
+BOLD = "\033[1m"
+
+EMOJI = {
+    "added": "✅", "complete": "🎉", "backlog_add": "📥",
+    "backlog_list": "📋", "backlog_pull": "📤", "newday": "🌅", "error": "❌"
+}
+
+def style(s):
+    """Return styled text or empty string if plain mode is enabled."""
+    if USE_PLAIN:
+        return ""
+    try:
+        # Test if the string can be encoded safely
+        encoding = getattr(sys.stdout, 'encoding', None) or 'ascii'
+        s.encode(encoding, errors='strict')
+        return s
+    except (UnicodeEncodeError, LookupError, AttributeError):
+        # If can't encode safely, return empty
+        return ""
+
+def emoji(k):
+    """Return emoji for given key or empty string if plain mode is enabled."""
+    if USE_PLAIN:
+        return ""
+    
+    emoji_char = EMOJI.get(k, "")
+    if not emoji_char:
+        return ""
+    
+    try:
+        # Test if emoji can be encoded safely
+        encoding = getattr(sys.stdout, 'encoding', None) or 'ascii'
+        emoji_char.encode(encoding, errors='strict')
+        return emoji_char
+    except (UnicodeEncodeError, LookupError, AttributeError):
+        # Return ASCII alternatives in plain mode or encoding issues
+        ascii_alternatives = {
+            "added": "[OK]",
+            "complete": "[DONE]", 
+            "backlog_add": "[+]",
+            "backlog_list": "[-]",
+            "backlog_pull": "[>]",
+            "newday": "[NEW]",
+            "error": "[!]"
+        }
+        return ascii_alternatives.get(k, "")
+
+RESET, CYAN, GRAY, BOLD, GREEN = map(style, (RESET, CYAN, GRAY, BOLD, GREEN))
 
 # ===== Input Validation =====
 
@@ -85,23 +125,23 @@ def validate_task_name(task):
     """
     if not task:
         return False, "Task name cannot be empty."
-
+    
     task_stripped = task.strip()
     if not task_stripped:
         return False, "Task name cannot be only whitespace."
-
+    
     if len(task_stripped) > Config.MAX_TASK_LENGTH:
         return False, f"Task name too long (max {Config.MAX_TASK_LENGTH} characters)."
-
+    
     # Check for potentially problematic characters
     if '\n' in task_stripped or '\r' in task_stripped:
         return False, "Task name cannot contain line breaks."
-
+        
     return True, ""
 
 def safe_input(prompt, validator=None):
     """
-    Get user input with optional validation.
+    Get user input with optional validation and Unicode safety.
     
     Args:
         prompt: The input prompt to display
@@ -111,20 +151,30 @@ def safe_input(prompt, validator=None):
         str: The validated input, or None if user cancels/validation fails
     """
     try:
-        user_input = input(prompt).strip()
+        # Make prompt safe for current console encoding
+        safe_prompt = prompt
+        try:
+            # Get encoding safely, with fallbacks
+            encoding = getattr(sys.stdout, 'encoding', None) or 'ascii'
+            prompt.encode(encoding, errors='strict')
+        except (UnicodeEncodeError, LookupError, AttributeError):
+            # Fallback to ASCII-safe version
+            safe_prompt = prompt.encode('ascii', errors='replace').decode('ascii')
+        
+        user_input = input(safe_prompt).strip()
         if validator:
             is_valid, error_msg = validator(user_input)
             if not is_valid:
-                print(f"{emoji('error')} {error_msg}")
+                safe_print(f"{emoji('error')} {error_msg}")
                 return None
         return user_input
     except (KeyboardInterrupt, EOFError):
-        print(f"\n{emoji('error')} Input cancelled.")
+        safe_print(f"\n{emoji('error')} Input cancelled.")
         return None
 
 def safe_int_input(prompt, min_val=None, max_val=None):
     """
-    Get integer input with validation.
+    Get integer input with validation and Unicode safety.
     
     Args:
         prompt: The input prompt to display
@@ -135,23 +185,32 @@ def safe_int_input(prompt, min_val=None, max_val=None):
         int or None: The validated integer, or None if invalid/cancelled
     """
     try:
-        user_input = input(prompt).strip()
+        # Make prompt safe for current console encoding
+        safe_prompt = prompt
+        try:
+            # Get encoding safely, with fallbacks
+            encoding = getattr(sys.stdout, 'encoding', None) or 'ascii'
+            prompt.encode(encoding, errors='strict')
+        except (UnicodeEncodeError, LookupError, AttributeError):
+            safe_prompt = prompt.encode('ascii', errors='replace').decode('ascii')
+            
+        user_input = input(safe_prompt).strip()
         if not user_input:
             return None
             
         value = int(user_input)
         if min_val is not None and value < min_val:
-            print(f"{emoji('error')} Value must be at least {min_val}.")
+            safe_print(f"{emoji('error')} Value must be at least {min_val}.")
             return None
         if max_val is not None and value > max_val:
-            print(f"{emoji('error')} Value must be at most {max_val}.")
+            safe_print(f"{emoji('error')} Value must be at most {max_val}.")
             return None
         return value
     except ValueError:
-        print(f"{emoji('error')} Invalid input. Must be a number.")
+        safe_print(f"{emoji('error')} Invalid input. Must be a number.")
         return None
     except (KeyboardInterrupt, EOFError):
-        print(f"\n{emoji('error')} Input cancelled.")
+        safe_print(f"\n{emoji('error')} Input cancelled.")
         return None
 
 # ===== Storage helpers =====
@@ -164,18 +223,18 @@ def load():
             return json.loads(content)
         return {}
     except json.JSONDecodeError as e:
-        print(f"{emoji('error')} Storage file corrupted: {e}")
-        print(f"Creating backup and starting fresh...")
+        safe_print(f"{emoji('error')} Storage file corrupted: {e}")
+        safe_print(f"Creating backup and starting fresh...")
         # Create backup of corrupted file
         backup_path = STORE.with_suffix('.json.backup')
         try:
             STORE.rename(backup_path)
-            print(f"Corrupted file backed up to: {backup_path}")
+            safe_print(f"Corrupted file backed up to: {backup_path}")
         except OSError:
-            print("Could not create backup of corrupted file.")
+            safe_print("Could not create backup of corrupted file.")
         return {}
     except (OSError, PermissionError) as e:
-        print(f"{emoji('error')} Cannot read storage file: {e}")
+        safe_print(f"{emoji('error')} Cannot read storage file: {e}")
         return {}
 
 def save(data):
@@ -185,19 +244,19 @@ def save(data):
         STORE.write_text(content, encoding=Config.STORAGE_ENCODING)
         return True
     except (OSError, PermissionError) as e:
-        print(f"{emoji('error')} Cannot save to storage file: {e}")
-        print("Changes will be lost when the program exits.")
+        safe_print(f"{emoji('error')} Cannot save to storage file: {e}")
+        safe_print("Changes will be lost when the program exits.")
         return False
     except (TypeError, ValueError) as e:
-        print(f"{emoji('error')} Data serialization error: {e}")
+        safe_print(f"{emoji('error')} Data serialization error: {e}")
         return False
 
 def today_key():
-    """Function to return today's date in a string."""
+    """Return today's date as a string in YYYY-MM-DD format."""
     return str(date.today())
 
 def ensure_today(data):
-    """Function to ensure today's date exists with proper structure."""
+    """Ensure today's date exists in data with proper structure and return today's data."""
     # Ensure global backlog exists
     if "backlog" not in data:
         data["backlog"] = []
@@ -208,8 +267,27 @@ def ensure_today(data):
     return today
 
 def get_backlog(data):
-    """Get the global backlog."""
+    """Get the global backlog, creating it if it doesn't exist."""
     return data.setdefault("backlog", [])
+
+# ===== Display/Formatting helpers =====
+
+def format_backlog_timestamp(ts):
+    """Format timestamp for display in backlog listings."""
+    try:
+        dt = datetime.fromisoformat(ts)
+        date_str = dt.strftime(Config.DATE_FORMAT)
+        time_str = dt.strftime(Config.TIME_FORMAT)
+        return f"[{date_str} {time_str}]"
+    except (ValueError, KeyError):
+        return f"[{ts if ts else 'no timestamp'}]"
+
+def print_backlog_list(backlog, title="Backlog"):
+    """Print formatted backlog with consistent styling."""
+    safe_print(f"{emoji('backlog_list')} {title}:")
+    for i, item in enumerate(backlog, 1):
+        timestamp = format_backlog_timestamp(item.get('ts', ''))
+        safe_print(f" {i}. {item['task']} {timestamp}")
 
 def complete_current_task(today):
     """Mark the current task as completed."""
@@ -218,7 +296,7 @@ def complete_current_task(today):
         "task": today["todo"],
         "ts": datetime.now().isoformat(timespec="seconds")
     })
-    print(f"{emoji('complete')} Completed: {repr(today['todo'])}")
+    safe_print(f"{emoji('complete')} Completed: {repr(today['todo'])}")
     today["todo"] = None
 
 def handle_next_task_selection(data, today):
@@ -227,15 +305,15 @@ def handle_next_task_selection(data, today):
     
     # Show current backlog
     if backlog:
-        print()
+        safe_print("")  # Empty line - need to provide empty string
         print_backlog_list(backlog)
     else:
-        print("\nBacklog is empty.")
+        safe_print("\nBacklog is empty.")
 
-    print("\nSelect next task:")
-    print(" - Enter a number to pull from backlog")
-    print(" - [n] Add a new task")
-    print(" - [Enter] to skip")
+    safe_print("\nSelect next task:")
+    safe_print(" - Enter a number to pull from backlog")
+    safe_print(" - [n] Add a new task")
+    safe_print(" - [Enter] to skip")
 
     choice = safe_input("> ")
     if choice is None:
@@ -247,16 +325,16 @@ def handle_next_task_selection(data, today):
             task = backlog.pop(index)
             today["todo"] = task["task"]
             if save(data):
-                print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+                safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
                 cmd_status(None)  # Show status after pulling
         else:
-            print(f"{emoji('error')} Invalid backlog index.")
+            safe_print(f"{emoji('error')} Invalid backlog index.")
     elif choice.lower() == "n":
         new_task = safe_input("Enter new task: ", validate_task_name)
         if new_task:
             today["todo"] = new_task
             if save(data):
-                print(f"{emoji('added')} Added: {repr(new_task)}")
+                safe_print(f"{emoji('added')} Added: {repr(new_task)}")
                 cmd_status(None)  # Show status after adding
     # Empty choice (Enter) - skip, no action needed
 
@@ -276,16 +354,22 @@ def prompt_next_action(data):
     backlog = get_backlog(data)
     has_backlog = bool(backlog)
     if has_backlog:
-        choice = input("[p] pull next from backlog, [a] add new, ENTER to skip ▶ ").strip().lower()
+        choice = safe_input("[p] pull next from backlog, [a] add new, ENTER to skip ▶ ")
+        if choice is None:
+            return (None, None)
+        choice = choice.strip().lower()
     else:
-        choice = input("[a] add new, ENTER to skip ▶ ").strip().lower()
+        choice = safe_input("[a] add new, ENTER to skip ▶ ")
+        if choice is None:
+            return (None, None)
+        choice = choice.strip().lower()
 
     if choice == "p" and has_backlog:
         return ("pull", None)
     if choice == "a":
-        new_task = input("Describe the next task ▶ ").strip()
-        if new_task:
-            return ("add", new_task)
+        new_task = safe_input("Describe the next task ▶ ")
+        if new_task and new_task.strip():
+            return ("add", new_task.strip())
     return (None, None)
 
 
@@ -294,7 +378,7 @@ def cmd_add(args):
     # Validate task name
     is_valid, error_msg = validate_task_name(args.task)
     if not is_valid:
-        print(f"{emoji('error')} {error_msg}")
+        safe_print(f"{emoji('error')} {error_msg}")
         return
 
     data = load()
@@ -304,106 +388,125 @@ def cmd_add(args):
     clean_task = args.task.strip()
     
     if today["todo"]:
-        print(f"{emoji('error')} Active task already exists: {today['todo']}")
-        response = safe_input(f"➕ Would you like to add '{clean_task}' to the backlog instead? [y/N]: ")
+        safe_print(f"{emoji('error')} Active task already exists: {today['todo']}")
+        # Use ASCII-safe prompt character
+        prompt_char = "+" if USE_PLAIN else "+"  # Always use + for Windows compatibility
+        response = safe_input(f"{prompt_char} Would you like to add '{clean_task}' to the backlog instead? [y/N]: ")
         if response and response.lower() == 'y':
             ts = datetime.now().isoformat(timespec='seconds')
             get_backlog(data).append({"task": clean_task, "ts": ts})
             if save(data):
-                print(f"{emoji('backlog_add')} Added to backlog: {repr(clean_task)}")
+                safe_print(f"{emoji('backlog_add')} Added to backlog: {repr(clean_task)}")
         return
 
     today["todo"] = clean_task
     if save(data):
-        print(f"{emoji('added')} Added: {clean_task}")
+        safe_print(f"{emoji('added')} Added: {clean_task}")
         cmd_status(args)
 
 def cmd_done(args):
+    """Complete the current active task and prompt for next action."""
     data = load()
     today = ensure_today(data)
     
     if not today["todo"]:
-        print(f"{emoji('error')} No active task to complete.")
+        safe_print(f"{emoji('error')} No active task to complete.")
         return
 
     # Complete the task
     complete_current_task(today)
-    save(data)
+    if not save(data):
+        return  # Don't proceed if save failed
+        
     cmd_status(args)
     
     # Handle next task selection
     handle_next_task_selection(data, today)
 
 
-def cmd_status(_):
+def cmd_status(args):
+    """Display current status showing completed tasks and active task."""
     data = load()
     today = ensure_today(data)
     today_str = today_key()
-    print(f"\n=== TODAY: {today_str} ===")
+    safe_print(f"\n=== TODAY: {today_str} ===")
     for it in today["done"]:
         ts = it['ts'].split('T')[1]
-        print(f"{emoji('added')} {GREEN}{it['task']}{RESET} [{ts}]")
+        safe_print(f"{emoji('added')} {style(GREEN)}{it['task']}{style(RESET)} [{ts}]")
     if not today["done"]:
-        print("No completed tasks yet.")
-    print(f"{BOLD+CYAN if today['todo'] else GRAY}{today['todo'] or 'TBD'}{RESET}")
-    print("="*(17+len(today_str)))
+        safe_print("No completed tasks yet.")
+    safe_print(f"{style(BOLD+CYAN) if today['todo'] else style(GRAY)}{today['todo'] or 'TBD'}{style(RESET)}")
+    safe_print("="*(17+len(today_str)))
 
-def cmd_newday(_):
+def cmd_newday(args):
+    """Initialize a new day's data structure."""
     data = load()
     ensure_today(data)
-    save(data)
-    print(f"{emoji('newday')} New day initialized -> {today_key()}")
+    if save(data):
+        safe_print(f"{emoji('newday')} New day initialized -> {today_key()}")
 
 def cmd_backlog(args):
+    """Handle backlog subcommands: add, list, pull, remove."""
     data = load()
     today = ensure_today(data)
     backlog = get_backlog(data)
     
     if args.subcmd == "add":
-        backlog.append({"task": args.task,
+        # Validate task name
+        is_valid, error_msg = validate_task_name(args.task)
+        if not is_valid:
+            safe_print(f"{emoji('error')} {error_msg}")
+            return
+            
+        clean_task = args.task.strip()
+        backlog.append({"task": clean_task,
                        "ts": datetime.now().isoformat(timespec='seconds')})
-        save(data)
-        print(f"{emoji('backlog_add')} Backlog task added: {args.task}")
+        if save(data):
+            safe_print(f"{emoji('backlog_add')} Backlog task added: {clean_task}")
+            
     elif args.subcmd == "list":
         print_backlog_list(backlog)
+        
     elif args.subcmd == "pull":
         if today["todo"]:
-            print(f"{emoji('error')} Active task already exists: {today['todo']}")
+            safe_print(f"{emoji('error')} Active task already exists: {today['todo']}")
             return
         if not backlog:
-            print("No backlog items to pull.")
+            safe_print("No backlog items to pull.")
             return
+            
         if hasattr(args, "index") and args.index:
             idx = args.index - 1
             if idx < 0 or idx >= len(backlog):
-                print(f"{emoji('error')} Invalid index: {args.index}")
+                safe_print(f"{emoji('error')} Invalid index: {args.index}")
                 return
         elif not USE_PLAIN:
             print_backlog_list(backlog)
-            try:
-                idx = int(input("Select task to pull [1-n]: ")) - 1
-            except ValueError:
-                print(f"{emoji('error')} Invalid input. Must be a number.")
+            idx = safe_int_input("Select task to pull [1-n]: ", min_val=1, max_val=len(backlog))
+            if idx is None:
                 return
-            if idx < 0 or idx >= len(backlog):
-                print(f"{emoji('error')} Invalid index selected.")
-                return
+            idx -= 1  # Convert to 0-based index
         else:
             idx = 0  # default to top item in plain/CI mode
 
         task = backlog.pop(idx)
         today["todo"] = task["task"]
-        save(data)
-        print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
-        cmd_status(args)
+        if save(data):
+            safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+            cmd_status(args)
+            
     elif args.subcmd == "remove":
+        if not backlog:
+            safe_print("No backlog items to remove.")
+            return
+            
         index = args.index - 1
         if 0 <= index < len(backlog):
             removed = backlog.pop(index)
-            save(data)
-            print(f"{emoji('error')} Removed from backlog: {repr(removed['task'])}")
+            if save(data):
+                safe_print(f"{emoji('error')} Removed from backlog: {repr(removed['task'])}")
         else:
-            print(f"{emoji('error')} Invalid backlog index: {args.index}")
+            safe_print(f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})")
 
 # ===== Argparse + main =====
 
@@ -436,6 +539,8 @@ def build_parser():
 
 def main():
     """Main entry point for the task tracker CLI."""
+    setup_console_encoding()  # Set up Unicode handling
+    
     args = build_parser().parse_args()
 
     if args.cmd == "add" or (args.cmd == "backlog" and args.subcmd == "add"):
