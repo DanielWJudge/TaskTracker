@@ -144,7 +144,7 @@ def cmd_backlog(args):
         print(f"{emoji('backlog_list')} Backlog:")
         for i, it in enumerate(today["backlog"],1):
             print(f" {i}. {it['task']} [{it['ts']}]")
-    else:  # pull
+    elif args.subcmd == "pull":
         if today["todo"]:
             print(f"{emoji('error')} Active task already exists: {today['todo']}"); return
         if not today["backlog"]:
@@ -153,6 +153,14 @@ def cmd_backlog(args):
         today["todo"] = task['task']
         save(data)
         print(f"{emoji('backlog_pull')} Pulled from backlog: {task['task']}")
+    elif args.subcmd == "remove":
+        index = args.index - 1
+        if 0 <= index < len(today["backlog"]):
+            removed = today["backlog"].pop(index)
+            save(data)
+            print(f"{emoji('error')} Removed from backlog: {repr(removed['task'])}")
+        else:
+            print(f"{emoji('error')} Invalid backlog index: {args.index}")
 
 # ===== Argparse + main =====
 
@@ -175,6 +183,9 @@ def build_parser():
     b_a.set_defaults(func=cmd_backlog)
     b_sub.add_parser("list").set_defaults(func=cmd_backlog)
     b_sub.add_parser("pull").set_defaults(func=cmd_backlog)
+    b_remove = b_sub.add_parser("remove", help="Remove a backlog item by index")
+    b_remove.add_argument("index", type=int, help="1-based index of item to remove")
+    b_remove.set_defaults(func=cmd_backlog)
     return p
 
 def main():
