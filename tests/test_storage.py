@@ -13,7 +13,13 @@ class TestLoad:
         """Test loading existing valid file."""
         temp_storage.write_text(json.dumps(sample_data), encoding="utf-8")
         result = load()
-        assert result == sample_data
+        # Migrate sample_data for comparison
+        expected = json.loads(json.dumps(sample_data))
+        if "backlog" in expected:
+            for task in expected["backlog"]:
+                if isinstance(task, dict) and "state" not in task:
+                    task["state"] = "active"
+        assert result == expected
 
     def test_load_nonexistent_file(self, temp_storage):
         """Test loading when file doesn't exist."""

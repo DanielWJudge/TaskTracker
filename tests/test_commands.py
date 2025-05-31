@@ -2,6 +2,8 @@
 
 from unittest.mock import patch, MagicMock
 import json
+import sys
+import importlib
 
 import tasker
 from tasker import (
@@ -266,7 +268,8 @@ class TestHandleNextTaskSelection:
 
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
-        assert today["todo"]["task"] == "Second task"
+        active_task = today["todo"]
+        assert active_task["task"] == "Second task"
         assert len(data["backlog"]) == 1  # one item removed
         assert data["backlog"][0]["task"] == "First task"  # correct item remained
 
@@ -309,7 +312,8 @@ class TestHandleNextTaskSelection:
 
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
-        assert today["todo"]["task"] == "New interactive task"
+        active_task = today["todo"]
+        assert active_task["task"] == "New interactive task"
 
     def test_skip_adding_task(self, plain_mode):
         """Test skipping task addition (empty input)."""
@@ -654,3 +658,97 @@ class TestCmdBacklog:
         captured = capsys.readouterr()
         # The updated code properly shows "No backlog items to remove" for empty backlog
         assert "No backlog items to remove" in captured.out
+
+
+class TestCmdCancel:
+    """Test the cmd_cancel command function."""
+
+    def test_cancel_active_task(self, temp_storage, plain_mode, capsys):
+        """Test cancelling an active task."""
+
+        reloaded_tasker_module = None
+        if "tasker" in sys.modules:
+            importlib.reload(tasker)
+            reloaded_tasker_module = sys.modules["tasker"]
+        else:
+            # Fallback or error if tasker not loaded as expected
+            reloaded_tasker_module = tasker
+
+        if reloaded_tasker_module is None:
+            assert False, "Tasker module did not load/reload correctly"
+
+        # Setup active task data
+        active_task_details = {
+            "task": "Task to cancel",
+            "categories": [],
+            "tags": [],
+            "ts": "2025-05-30T10:00:00",
+            "state": "active",
+        }
+        data_to_write = {
+            "2025-05-30": {"todo": active_task_details, "done": []},
+            "backlog": [],
+        }
+        temp_storage.write_text(json.dumps(data_to_write), encoding="utf-8")
+
+        args = MagicMock()
+        args.store = str(temp_storage)
+
+        with patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ):
+            reloaded_tasker_module.cmd_cancel(args)
+
+        with patch(f"{reloaded_tasker_module.__name__}.STORE", temp_storage), patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ):
+            updated_data = reloaded_tasker_module.load()
+            today = reloaded_tasker_module.ensure_today(updated_data)
+
+        captured = capsys.readouterr()
+        assert "Cancelled:" in captured.out
+
+        assert (
+            today["todo"] is None
+        ), f"Expected todo to be None, but was {today['todo']}"
+        assert (
+            len(today["done"]) == 1
+        ), f"Expected 1 item in done list, found {len(today['done'])}"
+
+        if len(today["done"]) == 1:
+            cancelled_outer_wrapper = today["done"][0]
+            assert "task" in cancelled_outer_wrapper, "'task' key missing in done item"
+            cancelled_task_data = cancelled_outer_wrapper["task"]
+            assert isinstance(
+                cancelled_task_data, dict
+            ), "Cancelled task data should be a dict"
+            assert (
+                cancelled_task_data.get("state") == "cancelled"
+            ), f"Cancelled task state is not 'cancelled', but {cancelled_task_data.get('state')}"
+            assert (
+                "cancelled_ts" in cancelled_task_data
+            ), "'cancelled_ts' missing in cancelled task"
+            assert (
+                cancelled_task_data.get("task") == "Task to cancel"
+            ), f"Cancelled task text is incorrect: {cancelled_task_data.get('task')}"
+
+    def test_cancel_no_active_task(self, temp_storage, plain_mode, capsys):
+        """Test cancelling when there is no active task."""
+
+        reloaded_tasker_module = tasker
+        if "tasker" in sys.modules:
+            importlib.reload(tasker)
+            reloaded_tasker_module = sys.modules["tasker"]
+
+        data = {"2025-05-30": {"todo": None, "done": []}, "backlog": []}
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.store = str(temp_storage)
+
+        with patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ), patch(f"{reloaded_tasker_module.__name__}.STORE", temp_storage):
+            reloaded_tasker_module.cmd_cancel(args)
+
+        captured = capsys.readouterr()
+        assert "No active task to cancel" in captured.out
