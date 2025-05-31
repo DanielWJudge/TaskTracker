@@ -38,6 +38,69 @@ Most productivity apps encourage **endless lists** that overwhelm your brain. Ta
 
 ---
 
+## 🏷️ Task Categories and Tags
+
+You can organize your tasks using categories (prefixed with `@`) and tags (prefixed with `#`):
+
+- **Categories**: Use `@category` to group tasks by context (e.g., `@work`, `@personal`).
+- **Tags**: Use `#tag` to mark priority, status, or any other attribute (e.g., `#urgent`, `#low`).
+
+**Examples:**
+- `python tasker.py add "Finish report @work #urgent"`
+- `python tasker.py backlog add "Buy groceries @personal #low"`
+
+---
+
+## 🔍 Filtering by Category and Tag
+
+You can filter your active tasks and backlog by category and/or tag:
+
+- **By category:**  
+  `python tasker.py status --filter @work`
+- **By tag:**  
+  `python tasker.py backlog list --filter "#urgent"`
+- **Multiple filters:**  
+  `python tasker.py status --filter "@work,#urgent"`
+- **Case-insensitive:**  
+  `--filter "@WORK,#URGENT"` works the same as lowercase.
+
+**Note:**
+If your filter includes `#`, enclose it in quotes to avoid shell comment parsing.
+
+**Examples:**
+```sh
+python tasker.py status --filter @work
+python tasker.py backlog list --filter "#urgent"
+python tasker.py status --filter "@work,@personal"
+python tasker.py status
+```
+
+| Command Example                                 | Description                        |
+|-------------------------------------------------|------------------------------------|
+| `add "Task @work #urgent"`                      | Add a work task with urgent tag    |
+| `status --filter @work`                         | Show only work tasks               |
+| `backlog list --filter "#urgent"`               | Show only urgent backlog items     |
+| `status --filter "@work,#urgent"`               | Show work tasks tagged urgent      |
+| `backlog list --filter @personal`               | Show personal backlog items        |
+
+---
+
+## 🧪 Integration Test Coverage
+
+This project includes comprehensive integration tests to ensure reliability:
+
+- **Complete workflows:** Add, filter, complete, and pull tasks by category/tag.
+- **CLI argument handling:** Tests for quoting, multiple filters, and invalid input.
+- **Error scenarios:** Invalid filters, non-existent categories/tags, corrupted data.
+- **Performance:** Filtering remains fast even with 1000+ backlog tasks.
+
+Run all tests with:
+```sh
+pytest
+```
+
+---
+
 ## ⚡ Quick Start
 
 ```bash
