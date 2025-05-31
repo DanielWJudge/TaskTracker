@@ -19,7 +19,7 @@ import uuid
 import sys
 import re
 from datetime import datetime
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from datetime import date
 from pathlib import Path
 import os
@@ -661,8 +661,8 @@ def extract_tags_from_tasks(tasks: List[dict]) -> List[str]:
 
 def filter_tasks(
     tasks: List[dict],
-    filter_categories: List[str] = None,
-    filter_tags: List[str] = None,
+    filter_categories: Optional[List[str]] = None,
+    filter_tags: Optional[List[str]] = None,
 ) -> List[dict]:
     """
     Filter tasks by categories and/or tags.
@@ -795,8 +795,8 @@ def parse_filter_string(filter_str: str) -> Tuple[bool, List[str], List[str], st
 
 def filter_tasks_by_tags_or_categories(
     tasks: List[dict],
-    filter_categories: List[str] = None,
-    filter_tags: List[str] = None,
+    filter_categories: Optional[List[str]] = None,
+    filter_tags: Optional[List[str]] = None,
 ) -> List[dict]:
     if not filter_categories and not filter_tags:
         return tasks
@@ -861,7 +861,9 @@ def filter_tasks_by_tags_or_categories(
 
 
 def filter_single_task_by_tags_or_categories(
-    task, filter_categories: List[str] = None, filter_tags: List[str] = None
+    task,
+    filter_categories: Optional[List[str]] = None,
+    filter_tags: Optional[List[str]] = None,
 ) -> bool:
     normalized_filter_categories = (
         [cat.lower() for cat in filter_categories] if filter_categories else []
