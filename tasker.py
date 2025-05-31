@@ -18,6 +18,9 @@ import json
 import uuid
 import sys
 import locale
+import re
+from datetime import datetime
+from typing import Tuple, List
 from datetime import datetime, date
 from pathlib import Path
 
@@ -283,20 +286,52 @@ def format_backlog_timestamp(ts):
         return f"[{ts if ts else 'no timestamp'}]"
 
 def print_backlog_list(backlog, title="Backlog"):
-    """Print formatted backlog with consistent styling."""
+    """Print formatted backlog with consistent styling and tag highlighting."""
     safe_print(f"{emoji('backlog_list')} {title}:")
     for i, item in enumerate(backlog, 1):
         timestamp = format_backlog_timestamp(item.get('ts', ''))
-        safe_print(f" {i}. {item['task']} {timestamp}")
+        
+        # Handle both old and new format backlog items
+        if isinstance(item, dict) and "task" in item:
+            if isinstance(item["task"], dict):
+                # New format with structure
+                task_text = item["task"]["task"]
+                categories = item["task"].get("categories", [])
+                tags = item["task"].get("tags", [])
+            else:
+                # Old format - parse tags
+                task_text = item["task"]
+                _, categories, tags = parse_tags(task_text)
+        else:
+            # Very old format
+            task_text = str(item)
+            _, categories, tags = parse_tags(task_text)
+        
+        # Format with tag highlighting
+        formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
+        safe_print(f" {i}. {formatted_task} {timestamp}")
+
 
 def complete_current_task(today):
     """Mark the current task as completed."""
-    today["done"].append({
+    # Handle both old format (string) and new format (dict)
+    if isinstance(today["todo"], dict):
+        task_data = today["todo"]
+        task_text = task_data["task"]
+    else:
+        # Legacy format - convert string to dict
+        task_text = today["todo"]
+        task_data = create_task_data(task_text)
+    
+    # Store complete task data in done list
+    done_item = {
         "id": uuid.uuid4().hex[:8],
-        "task": today["todo"],
+        "task": task_data,  # Store full task data structure
         "ts": datetime.now().isoformat(timespec="seconds")
-    })
-    safe_print(f"{emoji('complete')} Completed: {repr(today['todo'])}")
+    }
+    
+    today["done"].append(done_item)
+    safe_print(f"{emoji('complete')} Completed: {repr(task_text)}")
     today["todo"] = None
 
 def handle_next_task_selection(data, today):
@@ -305,7 +340,7 @@ def handle_next_task_selection(data, today):
     
     # Show current backlog
     if backlog:
-        safe_print("")  # Empty line - need to provide empty string
+        safe_print("")  # Empty line
         print_backlog_list(backlog)
     else:
         safe_print("\nBacklog is empty.")
@@ -322,21 +357,287 @@ def handle_next_task_selection(data, today):
     if choice.isdigit():
         index = int(choice) - 1
         if 0 <= index < len(backlog):
-            task = backlog.pop(index)
-            today["todo"] = task["task"]
+            task_item = backlog.pop(index)
+            
+            # Handle both old and new format backlog items
+            if isinstance(task_item, dict) and "task" in task_item:
+                if isinstance(task_item["task"], dict):
+                    # New format - already has structure
+                    today["todo"] = task_item["task"]
+                    task_text = task_item["task"]["task"]
+                else:
+                    # Old format - convert to new format
+                    task_text = task_item["task"]
+                    today["todo"] = create_task_data(task_text)
+            else:
+                # Very old format - just a string
+                task_text = str(task_item)
+                today["todo"] = create_task_data(task_text)
+            
             if save(data):
-                safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+                safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task_text)}")
                 cmd_status(None)  # Show status after pulling
         else:
             safe_print(f"{emoji('error')} Invalid backlog index.")
     elif choice.lower() == "n":
         new_task = safe_input("Enter new task: ", validate_task_name)
         if new_task:
-            today["todo"] = new_task
+            today["todo"] = create_task_data(new_task)  # Use structured data
             if save(data):
                 safe_print(f"{emoji('added')} Added: {repr(new_task)}")
                 cmd_status(None)  # Show status after adding
     # Empty choice (Enter) - skip, no action needed
+
+# ===== Tag Parsing Functions =====
+
+def parse_tags(task_text: str) -> Tuple[str, List[str], List[str]]:
+    """
+    Parse @categories and #tags from task text.
+    
+    Args:
+        task_text: The task description potentially containing tags
+        
+    Returns:
+        tuple: (original_text, categories_list, tags_list)
+        
+    Examples:
+        >>> parse_tags("Fix bug @work #urgent")
+        ("Fix bug @work #urgent", ["work"], ["urgent"])
+        
+        >>> parse_tags("Simple task")
+        ("Simple task", [], [])
+    """
+    if not task_text:
+        return task_text, [], []
+    
+    # Regular expressions for matching tags
+    category_pattern = r'@([a-zA-Z0-9_-]+)'
+    tag_pattern = r'#([a-zA-Z0-9_-]+)'
+    
+    # Find all categories and tags
+    categories = re.findall(category_pattern, task_text)
+    tags = re.findall(tag_pattern, task_text)
+    
+    # Normalize to lowercase and remove duplicates while preserving order
+    categories = list(dict.fromkeys(cat.lower() for cat in categories))
+    tags = list(dict.fromkeys(tag.lower() for tag in tags))
+    
+    return task_text, categories, tags
+
+
+def validate_tag_format(tag: str) -> bool:
+    """
+    Validate if a tag follows the correct format.
+    
+    Args:
+        tag: The tag to validate (without @ or # prefix)
+        
+    Returns:
+        bool: True if valid, False otherwise
+        
+    Valid format:
+        - Only letters, numbers, underscores, hyphens
+        - 1-50 characters long
+        - No spaces or special characters
+    """
+    if not tag:
+        return False
+    
+    if len(tag) > 50:  # reasonable limit
+        return False
+    
+    # Only allow alphanumeric, underscore, and hyphen
+    pattern = r'^[a-zA-Z0-9_-]+$'
+    return bool(re.match(pattern, tag))
+
+
+def format_task_with_tags(task_text: str, categories: List[str], tags: List[str], plain_mode: bool = False) -> str:
+    """
+    Format task text with highlighted categories and tags.
+    
+    Args:
+        task_text: The original task text
+        categories: List of categories found in the task
+        tags: List of tags found in the task  
+        plain_mode: If True, don't add color codes
+        
+    Returns:
+        str: Formatted task text with highlighted tags
+    """
+    if plain_mode or USE_PLAIN:
+        # In plain mode, just return the original text
+        return task_text
+    
+    # Color codes for highlighting
+    CATEGORY_COLOR = "\033[94m"  # Blue
+    TAG_COLOR = "\033[93m"       # Yellow
+    RESET_COLOR = "\033[0m"
+    
+    formatted_text = task_text
+    
+    # Highlight categories (@category)
+    for category in categories:
+        pattern = f"@{category}"
+        replacement = f"{CATEGORY_COLOR}@{category}{RESET_COLOR}"
+        # Use word boundaries to avoid partial matches
+        formatted_text = re.sub(f"@{re.escape(category)}\\b", replacement, formatted_text, flags=re.IGNORECASE)
+    
+    # Highlight tags (#tag)
+    for tag in tags:
+        pattern = f"#{tag}"
+        replacement = f"{TAG_COLOR}#{tag}{RESET_COLOR}"
+        formatted_text = re.sub(f"#{re.escape(tag)}\\b", replacement, formatted_text, flags=re.IGNORECASE)
+    
+    return formatted_text
+
+
+def create_task_data(task_text: str) -> dict:
+    """
+    Create a task data structure with parsed tags.
+    
+    Args:
+        task_text: The task description
+        
+    Returns:
+        dict: Task data with text, categories, tags, and timestamp
+    """
+    text, categories, tags = parse_tags(task_text)
+    
+    return {
+        "task": text,
+        "categories": categories,
+        "tags": tags,
+        "ts": datetime.now().isoformat(timespec="seconds")
+    }
+
+
+# ===== Update existing validation function =====
+
+def validate_task_name_with_tags(task: str) -> Tuple[bool, str]:
+    """
+    Enhanced task validation that includes tag format validation.
+    
+    Args:
+        task: The task name to validate (may include tags)
+        
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+    """
+    # First run the basic validation
+    is_valid, error_msg = validate_task_name(task)
+    if not is_valid:
+        return is_valid, error_msg
+    
+    # Parse and validate tags
+    text, categories, tags = parse_tags(task)
+    
+    # Validate each category format
+    for category in categories:
+        if not validate_tag_format(category):
+            return False, f"Invalid category format: @{category}. Use only letters, numbers, underscores, and hyphens."
+    
+    # Validate each tag format  
+    for tag in tags:
+        if not validate_tag_format(tag):
+            return False, f"Invalid tag format: #{tag}. Use only letters, numbers, underscores, and hyphens."
+    
+    return True, ""
+
+
+# ===== Helper functions for filtering (we'll implement these next) =====
+
+def extract_categories_from_tasks(tasks: List[dict]) -> List[str]:
+    """Extract all unique categories from a list of tasks."""
+    categories = set()
+    for task in tasks:
+        if isinstance(task, dict) and "categories" in task:
+            categories.update(task["categories"])
+        elif isinstance(task, dict) and "task" in task:
+            # Handle legacy tasks without category field
+            _, cats, _ = parse_tags(task["task"])
+            categories.update(cats)
+    return sorted(list(categories))
+
+
+def extract_tags_from_tasks(tasks: List[dict]) -> List[str]:
+    """Extract all unique tags from a list of tasks."""
+    tags = set()
+    for task in tasks:
+        if isinstance(task, dict) and "tags" in task:
+            tags.update(task["tags"])
+        elif isinstance(task, dict) and "task" in task:
+            # Handle legacy tasks without tags field
+            _, _, task_tags = parse_tags(task["task"])
+            tags.update(task_tags)
+    return sorted(list(tags))
+
+
+def filter_tasks_by_tags(tasks: List[dict], filter_categories: List[str] = None, filter_tags: List[str] = None) -> List[dict]:
+    """
+    Filter tasks by categories and/or tags.
+    
+    Args:
+        tasks: List of task dictionaries
+        filter_categories: Categories to filter by (e.g., ["work", "personal"])
+        filter_tags: Tags to filter by (e.g., ["urgent", "low"])
+        
+    Returns:
+        List of tasks matching the filters
+    """
+    if not filter_categories and not filter_tags:
+        return tasks
+    
+    filtered_tasks = []
+    
+    for task in tasks:
+        # Handle both new format (with categories/tags fields) and legacy format
+        if isinstance(task, dict):
+            if "categories" in task and "tags" in task:
+                task_categories = task["categories"]
+                task_tags = task["tags"] 
+            else:
+                # Legacy format - parse from task text
+                _, task_categories, task_tags = parse_tags(task.get("task", ""))
+            
+            # Check if task matches category filter
+            category_match = not filter_categories or any(cat in task_categories for cat in filter_categories)
+            
+            # Check if task matches tag filter
+            tag_match = not filter_tags or any(tag in task_tags for tag in filter_tags)
+            
+            # Task must match both filters (if specified)
+            if category_match and tag_match:
+                filtered_tasks.append(task)
+    
+    return filtered_tasks
+
+
+# ===== Data migration helper =====
+
+def migrate_task_to_tagged_format(task_data: dict) -> dict:
+    """
+    Migrate a legacy task to include categories and tags fields.
+    
+    Args:
+        task_data: Legacy task dictionary
+        
+    Returns:
+        Updated task dictionary with categories and tags
+    """
+    if "categories" in task_data and "tags" in task_data:
+        # Already migrated
+        return task_data
+    
+    # Parse tags from task text
+    task_text = task_data.get("task", "")
+    text, categories, tags = parse_tags(task_text)
+    
+    # Update task data
+    updated_task = task_data.copy()
+    updated_task["categories"] = categories
+    updated_task["tags"] = tags
+    
+    return updated_task
 
 # ===== Command functions =====
 def prompt_next_action(data):
@@ -386,20 +687,29 @@ def cmd_add(args):
     
     # Clean the task name
     clean_task = args.task.strip()
+
+    # Parse tags from the task
+    task_data = create_task_data(clean_task)
     
     if today["todo"]:
-        safe_print(f"{emoji('error')} Active task already exists: {today['todo']}")
+         # Extract task name for display - handle both old and new formats
+        if isinstance(today["todo"], dict):
+            existing_task_name = today["todo"]["task"]
+        else:
+            existing_task_name = today["todo"]
+            
+        safe_print(f"{emoji('error')} Active task already exists: {existing_task_name}")
         # Use ASCII-safe prompt character
         prompt_char = "+" if USE_PLAIN else "+"  # Always use + for Windows compatibility
         response = safe_input(f"{prompt_char} Would you like to add '{clean_task}' to the backlog instead? [y/N]: ")
         if response and response.lower() == 'y':
-            ts = datetime.now().isoformat(timespec='seconds')
-            get_backlog(data).append({"task": clean_task, "ts": ts})
+            get_backlog(data).append(task_data)  # Use task_data instead of separate dict
             if save(data):
                 safe_print(f"{emoji('backlog_add')} Added to backlog: {repr(clean_task)}")
         return
 
-    today["todo"] = clean_task
+    # Store the full task data structure instead of just text
+    today["todo"] = task_data
     if save(data):
         safe_print(f"{emoji('added')} Added: {clean_task}")
         cmd_status(args)
@@ -430,12 +740,46 @@ def cmd_status(args):
     today = ensure_today(data)
     today_str = today_key()
     safe_print(f"\n=== TODAY: {today_str} ===")
+    
+    # Display completed tasks
     for it in today["done"]:
         ts = it['ts'].split('T')[1]
-        safe_print(f"{emoji('added')} {style(GREEN)}{it['task']}{style(RESET)} [{ts}]")
+        
+        # Handle both old format (string) and new format (dict)
+        if isinstance(it['task'], dict):
+            task_text = it['task']['task']
+            categories = it['task'].get('categories', [])
+            tags = it['task'].get('tags', [])
+        else:
+            # Legacy format - parse tags from text
+            task_text = it['task']
+            _, categories, tags = parse_tags(task_text)
+        
+        # Format the completed task with tag highlighting
+        formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
+        safe_print(f"{emoji('added')} {style(GREEN)}{formatted_task}{style(RESET)} [{ts}]")
+    
     if not today["done"]:
         safe_print("No completed tasks yet.")
-    safe_print(f"{style(BOLD+CYAN) if today['todo'] else style(GRAY)}{today['todo'] or 'TBD'}{style(RESET)}")
+    
+    # Display active task
+    if today["todo"]:
+        # Handle both old format (string) and new format (dict)
+        if isinstance(today["todo"], dict):
+            task_text = today["todo"]["task"]
+            categories = today["todo"].get("categories", [])
+            tags = today["todo"].get("tags", [])
+        else:
+            # Legacy format - parse tags from text
+            task_text = today["todo"]
+            _, categories, tags = parse_tags(task_text)
+        
+        # Format the active task with tag highlighting
+        formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
+        safe_print(f"{style(BOLD+CYAN)}{formatted_task}{style(RESET)}")
+    else:
+        safe_print(f"{style(GRAY)}TBD{style(RESET)}")
+    
     safe_print("="*(17+len(today_str)))
 
 def cmd_newday(args):
@@ -459,8 +803,10 @@ def cmd_backlog(args):
             return
             
         clean_task = args.task.strip()
-        backlog.append({"task": clean_task,
-                       "ts": datetime.now().isoformat(timespec='seconds')})
+        # Create structured task data for backlog
+        task_data = create_task_data(clean_task)
+        backlog.append(task_data)
+        
         if save(data):
             safe_print(f"{emoji('backlog_add')} Backlog task added: {clean_task}")
             
@@ -469,7 +815,12 @@ def cmd_backlog(args):
         
     elif args.subcmd == "pull":
         if today["todo"]:
-            safe_print(f"{emoji('error')} Active task already exists: {today['todo']}")
+            # Handle display of existing active task
+            if isinstance(today["todo"], dict):
+                existing_task = today["todo"]["task"]
+            else:
+                existing_task = today["todo"]
+            safe_print(f"{emoji('error')} Active task already exists: {existing_task}")
             return
         if not backlog:
             safe_print("No backlog items to pull.")
@@ -489,10 +840,25 @@ def cmd_backlog(args):
         else:
             idx = 0  # default to top item in plain/CI mode
 
-        task = backlog.pop(idx)
-        today["todo"] = task["task"]
+        task_item = backlog.pop(idx)
+        
+        # Handle different backlog item formats
+        if isinstance(task_item, dict) and "task" in task_item:
+            if isinstance(task_item["task"], dict):
+                # New structured format
+                today["todo"] = task_item["task"]
+                task_text = task_item["task"]["task"]
+            else:
+                # Old format
+                task_text = task_item["task"]
+                today["todo"] = create_task_data(task_text)
+        else:
+            # Very old format
+            task_text = str(task_item)
+            today["todo"] = create_task_data(task_text)
+        
         if save(data):
-            safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task['task'])}")
+            safe_print(f"{emoji('backlog_pull')} Pulled from backlog: {repr(task_text)}")
             cmd_status(args)
             
     elif args.subcmd == "remove":
@@ -503,8 +869,18 @@ def cmd_backlog(args):
         index = args.index - 1
         if 0 <= index < len(backlog):
             removed = backlog.pop(index)
+            
+            # Get task text for display
+            if isinstance(removed, dict) and "task" in removed:
+                if isinstance(removed["task"], dict):
+                    task_text = removed["task"]["task"]
+                else:
+                    task_text = removed["task"]
+            else:
+                task_text = str(removed)
+            
             if save(data):
-                safe_print(f"{emoji('error')} Removed from backlog: {repr(removed['task'])}")
+                safe_print(f"{emoji('error')} Removed from backlog: {repr(task_text)}")
         else:
             safe_print(f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})")
 
@@ -540,7 +916,7 @@ def build_parser():
 def main():
     """Main entry point for the task tracker CLI."""
     setup_console_encoding()  # Set up Unicode handling
-    
+   
     args = build_parser().parse_args()
 
     if args.cmd == "add" or (args.cmd == "backlog" and args.subcmd == "add"):
