@@ -8,84 +8,84 @@ import os
 
 class TestLoad:
     """Test the load function."""
-    
+
     def test_load_existing_file(self, temp_storage, sample_data):
         """Test loading existing valid file."""
-        temp_storage.write_text(json.dumps(sample_data), encoding='utf-8')
+        temp_storage.write_text(json.dumps(sample_data), encoding="utf-8")
         result = load()
         assert result == sample_data
-    
+
     def test_load_nonexistent_file(self, temp_storage):
         """Test loading when file doesn't exist."""
         result = load()
         assert result == {}
-    
+
     def test_load_corrupted_json(self, temp_storage, capsys):
         """Test loading corrupted JSON file."""
-        temp_storage.write_text("invalid json content", encoding='utf-8')
+        temp_storage.write_text("invalid json content", encoding="utf-8")
         result = load()
-        
+
         assert result == {}  # Should return empty dict
         captured = capsys.readouterr()
         assert "Storage file corrupted" in captured.out
         assert "Creating backup" in captured.out
-        
+
         # Check that backup was created
-        backup_file = temp_storage.with_suffix('.json.backup')
+        backup_file = temp_storage.with_suffix(".json.backup")
         assert backup_file.exists()
         assert backup_file.read_text() == "invalid json content"
-    
-    @patch('tasker.STORE')
+
+    @patch("tasker.STORE")
     def test_load_permission_error(self, mock_store, capsys):
         """Test loading with permission error."""
         mock_store.exists.return_value = True
         mock_store.read_text.side_effect = PermissionError("Access denied")
-        
+
         result = load()
         assert result == {}
-        
+
         captured = capsys.readouterr()
         assert "Cannot read storage file" in captured.out
 
 
 class TestSave:
     """Test the save function."""
-    
+
     def test_save_success(self, temp_storage, sample_data):
         """Test successful save operation."""
         result = save(sample_data)
         assert result is True
-        
+
         # Verify file was written correctly
-        saved_data = json.loads(temp_storage.read_text(encoding='utf-8'))
+        saved_data = json.loads(temp_storage.read_text(encoding="utf-8"))
         assert saved_data == sample_data
-    
-    @patch('tasker.STORE')
+
+    @patch("tasker.STORE")
     def test_save_permission_error(self, mock_store, capsys):
         """Test save with permission error."""
         mock_store.write_text.side_effect = PermissionError("Access denied")
-        
+
         result = save({"test": "data"})
         assert result is False
-        
+
         captured = capsys.readouterr()
         assert "Cannot save to storage file" in captured.out
-    
+
     def test_save_serialization_error(self, temp_storage, capsys):
         """Test save with non-serializable data."""
         # Create non-serializable data
         non_serializable = {"func": lambda x: x}
-        
+
         result = save(non_serializable)
         assert result is False
-        
+
         captured = capsys.readouterr()
         assert "Data serialization error" in captured.out
 
 
 class TestDataStructure:
     """Test data structure helper functions."""
-    
+
     def test_ensure_today_new_data(self, mock_datetime):
         """Test ensure_today with empty data."""
         old_env = os.environ.get("TASKER_TODAY_KEY")
@@ -103,7 +103,7 @@ class TestDataStructure:
                 os.environ["TASKER_TODAY_KEY"] = old_env
             else:
                 del os.environ["TASKER_TODAY_KEY"]
-    
+
     def test_ensure_today_existing_data(self, sample_data):
         """Test ensure_today with existing data."""
         old_env = os.environ.get("TASKER_TODAY_KEY")
@@ -119,15 +119,15 @@ class TestDataStructure:
                 os.environ["TASKER_TODAY_KEY"] = old_env
             else:
                 del os.environ["TASKER_TODAY_KEY"]
-    
+
     def test_get_backlog_new_data(self):
         """Test get_backlog creates backlog if missing."""
         data = {}
         backlog = get_backlog(data)
-        
+
         assert backlog == []
         assert data["backlog"] == []
-    
+
     def test_get_backlog_existing_data(self, sample_data):
         """Test get_backlog returns existing backlog."""
         backlog = get_backlog(sample_data)
