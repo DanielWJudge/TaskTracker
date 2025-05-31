@@ -1,5 +1,8 @@
 # TaskTracker
 
+[![CI](https://github.com/DanielWJudge/TaskTracker/actions/workflows/test.yml/badge.svg)](https://github.com/DanielWJudge/TaskTracker/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/DanielWJudge/TaskTracker/branch/main/graph/badge.svg)](https://codecov.io/gh/DanielWJudge/TaskTracker)
+
 _A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and ships faster._
 
 [![Tests](https://img.shields.io/badge/tests-250%20passing-brightgreen)]()

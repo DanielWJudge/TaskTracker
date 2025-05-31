@@ -7,6 +7,7 @@ from pathlib import Path
 import shlex
 import time
 
+
 @pytest.fixture
 def temp_project_dir():
     """Create a temporary directory with tasker.py for testing."""
@@ -19,23 +20,26 @@ def temp_project_dir():
     yield temp_path, temp_tasker, temp_storage
     shutil.rmtree(temp_dir)
 
+
 def run_cli(temp_tasker, temp_storage, command, stdin_input=None):
-    parts = ["python", str(temp_tasker), "--plain", "--store", str(temp_storage)] + shlex.split(command)
+    parts = [
+        "python",
+        str(temp_tasker),
+        "--plain",
+        "--store",
+        str(temp_storage),
+    ] + shlex.split(command)
     env = {
         **subprocess.os.environ,
-        'PYTHONIOENCODING': 'utf-8',
-        'PYTHONLEGACYWINDOWSSTDIO': '1',
-        'TASKER_TODAY_KEY': '2025-05-30',
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONLEGACYWINDOWSSTDIO": "1",
+        "TASKER_TODAY_KEY": "2025-05-30",
     }
     result = subprocess.run(
-        parts,
-        capture_output=True,
-        text=True,
-        input=stdin_input,
-        timeout=10,
-        env=env
+        parts, capture_output=True, text=True, input=stdin_input, timeout=10, env=env
     )
     return result
+
 
 def test_complete_workflow(temp_project_dir):
     """
@@ -59,45 +63,46 @@ def test_complete_workflow(temp_project_dir):
     assert result.returncode == 0
 
     # 2. Filter status by @work
-    result = run_cli(temp_tasker, temp_storage, 'status --filter @work')
+    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "Finish report @work #urgent" in result.stdout
     assert "Plan meeting @work" not in result.stdout  # Not active yet
     assert "Buy groceries @personal" not in result.stdout
 
     # 3. Complete work task
-    result = run_cli(temp_tasker, temp_storage, 'done', stdin_input="\n")
+    result = run_cli(temp_tasker, temp_storage, "done", stdin_input="\n")
     assert result.returncode == 0
     # After completion, no active task, so status should show TBD
-    result = run_cli(temp_tasker, temp_storage, 'status --filter @work')
+    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "TBD" in result.stdout or "No active task matches filter" in result.stdout
 
     # 4. Pull next @work task from backlog
     # List backlog filtered by @work to get index
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter @work')
+    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
     # Pull the first @work task
-    result = run_cli(temp_tasker, temp_storage, 'backlog pull --index 1')
+    result = run_cli(temp_tasker, temp_storage, "backlog pull --index 1")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
     # Now status should show this as active
-    result = run_cli(temp_tasker, temp_storage, 'status --filter @work')
+    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
 
     # 5. Verify personal tasks aren't affected
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter @personal')
+    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @personal")
     assert result.returncode == 0
     assert "Buy groceries @personal" in result.stdout
     assert "Call mom @personal" in result.stdout
     # They should not appear in status filtered by @work
-    result = run_cli(temp_tasker, temp_storage, 'status --filter @personal')
+    result = run_cli(temp_tasker, temp_storage, "status --filter @personal")
     assert result.returncode == 0
     assert "Plan meeting @work" not in result.stdout
     assert "Buy groceries @personal" not in result.stdout  # Not active
     assert "Call mom @personal" not in result.stdout  # Not active
+
 
 def test_cli_argument_variants(temp_project_dir):
     """
@@ -114,12 +119,18 @@ def test_cli_argument_variants(temp_project_dir):
     # 1. --filter with quoted tag
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "#urgent"')
     assert result.returncode == 0
-    assert "Task one @work #urgent" in result.stdout or "Task four @personal #urgent" in result.stdout
+    assert (
+        "Task one @work #urgent" in result.stdout
+        or "Task four @personal #urgent" in result.stdout
+    )
 
     # 2. --filter with quoted category
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work"')
     assert result.returncode == 0
-    assert "Task three @work #low" in result.stdout or "Task one @work #urgent" in result.stdout
+    assert (
+        "Task three @work #low" in result.stdout
+        or "Task one @work #urgent" in result.stdout
+    )
 
     # 3. --filter with multiple filters (category and tag)
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work,#low"')
@@ -135,17 +146,26 @@ def test_cli_argument_variants(temp_project_dir):
     # 5. --filter with only tag
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "#low"')
     assert result.returncode == 0
-    assert "Task three @work #low" in result.stdout or "Task two @personal #low" in result.stdout
+    assert (
+        "Task three @work #low" in result.stdout
+        or "Task two @personal #low" in result.stdout
+    )
 
     # 6. --filter with only category
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@personal"')
     assert result.returncode == 0
-    assert "Task two @personal #low" in result.stdout or "Task four @personal #urgent" in result.stdout
+    assert (
+        "Task two @personal #low" in result.stdout
+        or "Task four @personal #urgent" in result.stdout
+    )
 
     # 7. --filter with invalid format (missing @ or #)
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "work"')
     assert result.returncode == 0
-    assert "Invalid filter item: 'work'. Must start with @ (category) or # (tag)." in result.stdout
+    assert (
+        "Invalid filter item: 'work'. Must start with @ (category) or # (tag)."
+        in result.stdout
+    )
 
     # 8. --filter with invalid characters
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work!"')
@@ -158,11 +178,14 @@ def test_cli_argument_variants(temp_project_dir):
     assert "Backlog:" in result.stdout  # Should show all
 
     # 10. --filter with multiple categories
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work,@personal"')
+    result = run_cli(
+        temp_tasker, temp_storage, 'backlog list --filter "@work,@personal"'
+    )
     assert result.returncode == 0
     assert "Task three @work #low" in result.stdout
     assert "Task two @personal #low" in result.stdout
     assert "Task four @personal #urgent" in result.stdout
+
 
 def test_error_scenarios(temp_project_dir):
     """
@@ -175,9 +198,12 @@ def test_error_scenarios(temp_project_dir):
     run_cli(temp_tasker, temp_storage, 'backlog add "Task two @personal #low"')
 
     # 1. Invalid filter format (missing @/#)
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter work')
+    result = run_cli(temp_tasker, temp_storage, "backlog list --filter work")
     assert result.returncode == 0
-    assert "Invalid filter item: 'work'. Must start with @ (category) or # (tag)." in result.stdout
+    assert (
+        "Invalid filter item: 'work'. Must start with @ (category) or # (tag)."
+        in result.stdout
+    )
 
     # 2. Invalid filter format (invalid characters)
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work!"')
@@ -185,20 +211,29 @@ def test_error_scenarios(temp_project_dir):
     assert "Invalid category format" in result.stdout
 
     # 3. Filter by non-existent category
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter @nonexistent')
+    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @nonexistent")
     assert result.returncode == 0
-    assert "No backlog items match the filter." in result.stdout or "Backlog (filtered by: @nonexistent):" in result.stdout
+    assert (
+        "No backlog items match the filter." in result.stdout
+        or "Backlog (filtered by: @nonexistent):" in result.stdout
+    )
 
     # 4. Filter by non-existent tag
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter #doesnotexist')
+    result = run_cli(temp_tasker, temp_storage, "backlog list --filter #doesnotexist")
     assert result.returncode == 0
-    assert "No backlog items match the filter." in result.stdout or "Backlog (filtered by: #doesnotexist):" in result.stdout
+    assert (
+        "No backlog items match the filter." in result.stdout
+        or "Backlog (filtered by: #doesnotexist):" in result.stdout
+    )
 
     # 5. Corrupted data (invalid JSON in storage)
     temp_storage.write_text("not a json", encoding="utf-8")
-    result = run_cli(temp_tasker, temp_storage, 'status')
+    result = run_cli(temp_tasker, temp_storage, "status")
     assert result.returncode == 0
-    assert "Storage file corrupted" in result.stdout or "corrupted" in result.stdout.lower()
+    assert (
+        "Storage file corrupted" in result.stdout
+        or "corrupted" in result.stdout.lower()
+    )
 
     # 6. Edge case: empty filter
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter ""')
@@ -209,6 +244,7 @@ def test_error_scenarios(temp_project_dir):
     result = run_cli(temp_tasker, temp_storage, 'backlog list --filter ",,,"')
     assert result.returncode == 0
     assert "Backlog:" in result.stdout
+
 
 def test_performance_large_backlog(temp_project_dir):
     """
@@ -221,12 +257,14 @@ def test_performance_large_backlog(temp_project_dir):
     for i in range(1000):
         tag = "#urgent" if i % 2 == 0 else "#low"
         cat = "@work" if i % 3 == 0 else "@personal"
-        backlog.append({
-            "task": f"Task {i} {cat} {tag}",
-            "categories": [cat[1:]],
-            "tags": [tag[1:]],
-            "ts": "2025-05-30T10:00:00"
-        })
+        backlog.append(
+            {
+                "task": f"Task {i} {cat} {tag}",
+                "categories": [cat[1:]],
+                "tags": [tag[1:]],
+                "ts": "2025-05-30T10:00:00",
+            }
+        )
     data = {"backlog": backlog, "2025-05-30": {"todo": None, "done": []}}
     temp_storage.write_text(json.dumps(data), encoding="utf-8")
 
@@ -247,4 +285,4 @@ def test_performance_large_backlog(temp_project_dir):
     assert result.returncode == 0
     assert "Task 0 @work #urgent" in result.stdout
     assert "Task 3 @work #low" in result.stdout
-    assert elapsed < 1.5, f"Category filtering took too long: {elapsed:.2f}s" 
+    assert elapsed < 1.5, f"Category filtering took too long: {elapsed:.2f}s"
