@@ -23,6 +23,18 @@ from datetime import datetime
 from typing import Tuple, List
 from datetime import datetime, date
 from pathlib import Path
+import os
+
+# ===== Helper for case-insensitive deduplication =====
+def merge_and_dedup_case_insensitive(list1, list2):
+    seen = set()
+    result = []
+    for item in list1 + list2:
+        key = item.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
 
 # ===== Global toggles =====
 USE_PLAIN = False
@@ -256,6 +268,9 @@ def save(data):
 
 def today_key():
     """Return today's date as a string in YYYY-MM-DD format."""
+    env_date = os.environ.get('TASKER_TODAY_KEY')
+    if env_date:
+        return env_date
     return str(date.today())
 
 def ensure_today(data):
@@ -290,27 +305,41 @@ def print_backlog_list(backlog, title="Backlog"):
     safe_print(f"{emoji('backlog_list')} {title}:")
     for i, item in enumerate(backlog, 1):
         timestamp = format_backlog_timestamp(item.get('ts', ''))
-        
-        # Handle both old and new format backlog items
-        if isinstance(item, dict) and "task" in item:
-            if isinstance(item["task"], dict):
-                # New format with structure
-                task_text = item["task"]["task"]
-                categories = item["task"].get("categories", [])
-                tags = item["task"].get("tags", [])
+        task_text = ""
+        field_categories = []
+        field_tags = []
+        if isinstance(item, dict):
+            # Always check for top-level fields first
+            if "categories" in item or "tags" in item:
+                field_categories = item.get("categories", [])
+                field_tags = item.get("tags", [])
+                task_text = item.get("task", "")
+            elif "task" in item:
+                if isinstance(item["task"], dict):
+                    task_text = item["task"]["task"]
+                    field_categories = item["task"].get("categories", [])
+                    field_tags = item["task"].get("tags", [])
+                else:
+                    task_text = item["task"]
+                    _, field_categories, field_tags = parse_tags(task_text)
             else:
-                # Old format - parse tags
-                task_text = item["task"]
-                _, categories, tags = parse_tags(task_text)
+                task_text = str(item)
         else:
-            # Very old format
             task_text = str(item)
-            _, categories, tags = parse_tags(task_text)
-        
-        # Format with tag highlighting
-        formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
+            _, field_categories, field_tags = parse_tags(task_text)
+        _, text_categories, text_tags = parse_tags(task_text)
+        categories = merge_and_dedup_case_insensitive(field_categories, text_categories)
+        tags = merge_and_dedup_case_insensitive(field_tags, text_tags)
+        display_text = task_text
+        for cat in categories:
+            if not any(f"@{cat.lower()}" == part.lower() for part in display_text.split() if part.startswith("@")):
+                display_text += f" @{cat}"
+        for tag in tags:
+            if not any(f"#{tag.lower()}" == part.lower() for part in display_text.split() if part.startswith("#")):
+                display_text += f" #{tag}"
+        display_text = display_text.strip()
+        formatted_task = format_task_with_tags(display_text, categories, tags, USE_PLAIN)
         safe_print(f" {i}. {formatted_task} {timestamp}")
-
 
 def complete_current_task(today):
     """Mark the current task as completed."""
@@ -359,18 +388,18 @@ def handle_next_task_selection(data, today):
         if 0 <= index < len(backlog):
             task_item = backlog.pop(index)
             
-            # Handle both old and new format backlog items
+            # Handle different backlog item formats
             if isinstance(task_item, dict) and "task" in task_item:
                 if isinstance(task_item["task"], dict):
-                    # New format - already has structure
+                    # New structured format
                     today["todo"] = task_item["task"]
                     task_text = task_item["task"]["task"]
                 else:
-                    # Old format - convert to new format
+                    # Old format
                     task_text = task_item["task"]
                     today["todo"] = create_task_data(task_text)
             else:
-                # Very old format - just a string
+                # Very old format
                 task_text = str(task_item)
                 today["todo"] = create_task_data(task_text)
             
@@ -572,7 +601,7 @@ def extract_tags_from_tasks(tasks: List[dict]) -> List[str]:
     return sorted(list(tags))
 
 
-def filter_tasks_by_tags(tasks: List[dict], filter_categories: List[str] = None, filter_tags: List[str] = None) -> List[dict]:
+def filter_tasks(tasks: List[dict], filter_categories: List[str] = None, filter_tags: List[str] = None) -> List[dict]:
     """
     Filter tasks by categories and/or tags.
     
@@ -611,147 +640,173 @@ def filter_tasks_by_tags(tasks: List[dict], filter_categories: List[str] = None,
     
     return filtered_tasks
 
-def parse_filter_categories(filter_str: str) -> Tuple[bool, List[str], str]:
+def parse_filter_string(filter_str: str) -> Tuple[bool, List[str], List[str], str]:
     """
-    Parse filter string into list of categories.
+    Parse filter string into lists of categories and tags.
     
     Args:
-        filter_str: Comma-separated category string like "@work,@personal"
+        filter_str: Comma-separated string like "@work,#urgent,@personal"
         
     Returns:
-        tuple: (is_valid: bool, categories: List[str], error_message: str)
+        tuple: (is_valid: bool, categories: List[str], tags: List[str], error_message: str)
         
     Examples:
-        >>> parse_filter_categories("@work,@personal")
-        (True, ["work", "personal"], "")
+        >>> parse_filter_string("@work,#urgent")
+        (True, ["work"], ["urgent"], "")
         
-        >>> parse_filter_categories("@work, @personal")  # spaces ok
-        (True, ["work", "personal"], "")
+        >>> parse_filter_string("@work, #urgent, @personal")  # spaces ok
+        (True, ["work", "personal"], ["urgent"], "")
         
-        >>> parse_filter_categories("work,personal")  # missing @
-        (False, [], "Categories must start with @. Use: @work,@personal")
+        >>> parse_filter_string("work,#urgent")
+        (False, [], ["urgent"], "Invalid filter item: 'work'. Must start with @ (category) or # (tag).")
+
+        >>> parse_filter_string("@,@work,oops,#tag1")
+        (False, ["work"], ["tag1"], "Invalid category format: '@'. Use letters, numbers, underscores, and hyphens only. Invalid filter item: 'oops'. Must start with @ (category) or # (tag).")
     """
     if not filter_str:
-        return True, [], ""
+        return True, [], [], ""
     
-    # Split by comma and strip whitespace
-    raw_categories = [cat.strip() for cat in filter_str.split(",")]
+    items = [item.strip() for item in filter_str.split(",")]
+    # Filter out empty strings that might result from multiple commas like ",,"
+    # or leading/trailing commas like ",@work" or "@work,"
+    items = [item for item in items if item] 
     
-    # Remove empty strings
-    raw_categories = [cat for cat in raw_categories if cat]
-    
-    if not raw_categories:
-        return True, [], ""
+    if not items:
+        # This can happen if filter_str was just commas or whitespace
+        return True, [], [], ""
     
     categories = []
-    for cat in raw_categories:
-        # Check if category starts with @
-        if not cat.startswith("@"):
-            return False, [], f"Categories must start with @. Invalid: '{cat}'"
-        
-        # Extract category name (remove @)
-        cat_name = cat[1:]
-        
-        # Validate category format
-        if not validate_tag_format(cat_name):
-            return False, [], f"Invalid category format: '{cat}'. Use letters, numbers, underscores, and hyphens only."
-        
-        # Normalize to lowercase and add to list
-        categories.append(cat_name.lower())
+    tags = []
+    errors = []
+    overall_valid = True
     
-    # Remove duplicates while preserving order
-    categories = list(dict.fromkeys(categories))
-    
-    return True, categories, ""
-
-
-def filter_tasks_by_categories(tasks: List[dict], filter_categories: List[str]) -> List[dict]:
-    """
-    Filter tasks by categories.
-    
-    Args:
-        tasks: List of task dictionaries
-        filter_categories: List of category names to filter by (without @)
-        
-    Returns:
-        List of tasks that match any of the filter categories
-    """
-    if not filter_categories:
-        return tasks  # No filter means show all
-    
-    filtered_tasks = []
-    
-    for task in tasks:
-        # Handle both new format (with categories field) and legacy format
-        if isinstance(task, dict):
-            if "categories" in task:
-                # New structured format - use existing categories
-                task_categories = task["categories"]
-            elif "task" in task:
-                # Handle nested task structure (like in done items)
-                if isinstance(task["task"], dict):
-                    # Nested structured format
-                    if "categories" in task["task"]:
-                        task_categories = task["task"]["categories"]
-                    else:
-                        # Parse from nested task text
-                        _, task_categories, _ = parse_tags(task["task"]["task"])
-                else:
-                    # Legacy format - parse categories from task text
-                    _, task_categories, _ = parse_tags(task["task"])
-            else:
-                # Very old format - parse from task string
-                _, task_categories, _ = parse_tags(str(task))
+    for item in items:
+        if item.startswith("@"):
+            name = item[1:]
+            if not name: # Check for empty name like "@" or "@,"
+                errors.append(f"Invalid category format: '{item}'. Name cannot be empty.")
+                overall_valid = False
+                continue
+            if not validate_tag_format(name): # Reusing validate_tag_format as category names have same rules
+                errors.append(f"Invalid category format: '{item}'. Use letters, numbers, underscores, and hyphens only.")
+                overall_valid = False
+                continue # Skip adding this invalid item
+            categories.append(name.lower())
+        elif item.startswith("#"):
+            name = item[1:]
+            if not name: # Check for empty name like "#" or "#,"
+                errors.append(f"Invalid tag format: '{item}'. Name cannot be empty.")
+                overall_valid = False
+                continue
+            if not validate_tag_format(name):
+                errors.append(f"Invalid tag format: '{item}'. Use letters, numbers, underscores, and hyphens only.")
+                overall_valid = False
+                continue # Skip adding this invalid item
+            tags.append(name.lower())
         else:
-            # Old string format
-            _, task_categories, _ = parse_tags(str(task))
-        
-        # Check if any task category matches any filter category
-        if any(cat in task_categories for cat in filter_categories):
-            filtered_tasks.append(task)
+            errors.append(f"Invalid filter item: '{item}'. Must start with @ (category) or # (tag).")
+            overall_valid = False
+            # No continue here, as we don't add it to categories/tags anyway
+            
+    # Deduplicate categories and tags
+    # Using dict.fromkeys preserves order and is efficient for deduplication
+    categories = list(dict.fromkeys(categories))
+    tags = list(dict.fromkeys(tags))
     
+    error_message = " ".join(errors) # Concatenate multiple error messages
+    
+    return overall_valid, categories, tags, error_message
+
+
+def filter_tasks_by_tags_or_categories(tasks: List[dict], filter_categories: List[str] = None, filter_tags: List[str] = None) -> List[dict]:
+    if not filter_categories and not filter_tags:
+        return tasks
+    normalized_filter_categories = [cat.lower() for cat in filter_categories] if filter_categories else []
+    normalized_filter_tags = [tag.lower() for tag in filter_tags] if filter_tags else []
+    filtered_tasks = []
+    for task_item in tasks:
+        task_text = ""
+        field_categories = []
+        field_tags = []
+        # Always check for top-level fields first
+        if isinstance(task_item, dict):
+            if "categories" in task_item or "tags" in task_item:
+                field_categories = task_item.get("categories", [])
+                field_tags = task_item.get("tags", [])
+                task_text = task_item.get("task", "")
+            elif "task" in task_item:
+                if isinstance(task_item["task"], dict):
+                    task_data = task_item["task"]
+                    task_text = task_data["task"]
+                    field_categories = task_data.get("categories", [])
+                    field_tags = task_data.get("tags", [])
+                else:
+                    task_text = task_item["task"]
+                    _, field_categories, field_tags = parse_tags(task_text)
+            else:
+                task_text = str(task_item)
+        elif isinstance(task_item, str):
+            task_text = task_item
+            _, field_categories, field_tags = parse_tags(task_item)
+        else:
+            field_categories, field_tags = [], []
+        _, text_categories, text_tags = parse_tags(task_text)
+        merged_categories = [cat.lower() for cat in merge_and_dedup_case_insensitive(field_categories, text_categories)]
+        merged_tags = [tag.lower() for tag in merge_and_dedup_case_insensitive(field_tags, text_tags)]
+        category_match = not normalized_filter_categories or any(cat in normalized_filter_categories for cat in merged_categories)
+        tag_match = not normalized_filter_tags or any(tag in normalized_filter_tags for tag in merged_tags)
+        if normalized_filter_categories and normalized_filter_tags:
+            if category_match and tag_match:
+                filtered_tasks.append(task_item)
+        elif normalized_filter_categories:
+            if category_match:
+                filtered_tasks.append(task_item)
+        elif normalized_filter_tags:
+            if tag_match:
+                filtered_tasks.append(task_item)
     return filtered_tasks
 
-def filter_single_task_by_categories(task, filter_categories: List[str]) -> bool:
-    """
-    Check if a single task matches the category filter.
-    
-    Args:
-        task: Task object (dict or string)
-        filter_categories: List of category names to filter by
-        
-    Returns:
-        bool: True if task matches any filter category, False otherwise
-    """
-    if not filter_categories:
-        return True  # No filter means include all
-    
-    # Handle both new format and legacy format
+def filter_single_task_by_tags_or_categories(task, filter_categories: List[str] = None, filter_tags: List[str] = None) -> bool:
+    normalized_filter_categories = [cat.lower() for cat in filter_categories] if filter_categories else []
+    normalized_filter_tags = [tag.lower() for tag in filter_tags] if filter_tags else []
+    if not normalized_filter_categories and not normalized_filter_tags:
+        return True
+    task_text = ""
+    field_categories = []
+    field_tags = []
     if isinstance(task, dict):
-        if "categories" in task:
-            # New structured format
-            task_categories = task["categories"]
+        if "categories" in task or "tags" in task:
+            field_categories = task.get("categories", [])
+            field_tags = task.get("tags", [])
+            task_text = task.get("task", "")
         elif "task" in task:
-            # Handle nested task structure
             if isinstance(task["task"], dict):
-                # Nested structured format
-                if "categories" in task["task"]:
-                    task_categories = task["task"]["categories"]
-                else:
-                    # Parse from nested task text
-                    _, task_categories, _ = parse_tags(task["task"]["task"])
+                task_data = task["task"]
+                task_text = task_data["task"]
+                field_categories = task_data.get("categories", [])
+                field_tags = task_data.get("tags", [])
             else:
-                # Legacy format - parse from task text
-                _, task_categories, _ = parse_tags(task["task"])
+                task_text = task["task"]
+                _, field_categories, field_tags = parse_tags(task_text)
         else:
-            # Very old format
-            _, task_categories, _ = parse_tags(str(task))
+            task_text = str(task)
+    elif isinstance(task, str):
+        task_text = task
+        _, field_categories, field_tags = parse_tags(task)
     else:
-        # Old string format
-        _, task_categories, _ = parse_tags(str(task))
-    
-    # Check if any task category matches any filter category
-    return any(cat in task_categories for cat in filter_categories)
+        field_categories, field_tags = [], []
+    _, text_categories, text_tags = parse_tags(task_text)
+    merged_categories = [cat.lower() for cat in merge_and_dedup_case_insensitive(field_categories, text_categories)]
+    merged_tags = [tag.lower() for tag in merge_and_dedup_case_insensitive(field_tags, text_tags)]
+    category_match = not normalized_filter_categories or any(cat in normalized_filter_categories for cat in merged_categories)
+    tag_match = not normalized_filter_tags or any(tag in normalized_filter_tags for tag in merged_tags)
+    if normalized_filter_categories and normalized_filter_tags:
+        return category_match and tag_match
+    elif normalized_filter_categories:
+        return category_match
+    elif normalized_filter_tags:
+        return tag_match
+    return True
 
 # ===== Data migration helper =====
 
@@ -817,6 +872,14 @@ def prompt_next_action(data):
 
 def cmd_add(args):
     """Add a new task or offer to add to backlog if active task exists."""
+    global STORE
+    if hasattr(args, 'store') and args.store:
+        # Only set STORE if it's a string or Path
+        if isinstance(args.store, (str, Path)):
+            STORE = Path(args.store)
+        else:
+            import warnings
+            warnings.warn(f"cmd_add: args.store is not a valid path: {args.store!r}")
     # Validate task name
     is_valid, error_msg = validate_task_name(args.task)
     if not is_valid:
@@ -877,76 +940,118 @@ def cmd_done(args):
 
 def cmd_status(args):
     """Display current status showing completed tasks and active task."""
+    global USE_PLAIN, STORE
+    if hasattr(args, 'plain'):
+        USE_PLAIN = args.plain
+    if hasattr(args, 'store') and args.store:
+        STORE = Path(args.store)
     data = load()
     today = ensure_today(data)
     today_str = today_key()
     
     # Parse filter if provided
     filter_categories = []
+    filter_tags = [] # Initialize filter_tags
     if hasattr(args, 'filter') and args.filter:
-        is_valid, filter_categories, error_msg = parse_filter_categories(args.filter)
+        is_valid, filter_categories, filter_tags, error_msg = parse_filter_string(args.filter) # Update to get tags
         if not is_valid:
             safe_print(f"{emoji('error')} {error_msg}")
             return
     
     # Show filter info if filtering
     filter_info = ""
-    if filter_categories:
+    if filter_categories or filter_tags: # Check both
         formatted_cats = ", ".join(f"@{cat}" for cat in filter_categories)
-        filter_info = f" (filtered by: {formatted_cats})"
+        formatted_tags = ", ".join(f"#{tag}" for tag in filter_tags) # Format tags
+        parts = []
+        if formatted_cats: parts.append(formatted_cats)
+        if formatted_tags: parts.append(formatted_tags)
+        filter_info = f" (filtered by: {', '.join(parts)})"
     
     safe_print(f"\n=== TODAY: {today_str}{filter_info} ===")
     
     # Filter and display completed tasks
     completed_tasks = today["done"]
-    if filter_categories:
-        completed_tasks = filter_tasks_by_categories(completed_tasks, filter_categories)
+    if filter_categories or filter_tags: # Check both
+        completed_tasks = filter_tasks_by_tags_or_categories(completed_tasks, filter_categories, filter_tags) # Pass tags
     
     if completed_tasks:
         for it in completed_tasks:
             ts = it['ts'].split('T')[1]
-            
-            # Handle both old format (string) and new format (dict)
             if isinstance(it['task'], dict):
                 task_text = it['task']['task']
-                categories = it['task'].get('categories', [])
-                tags = it['task'].get('tags', [])
+                field_categories = it['task'].get('categories', [])
+                field_tags = it['task'].get('tags', [])
             else:
-                # Legacy format - parse tags from text
                 task_text = it['task']
-                _, categories, tags = parse_tags(task_text)
-            
-            # Format the completed task with tag highlighting
-            formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
-            safe_print(f"{emoji('added')} {style(GREEN)}{formatted_task}{style(RESET)} [{ts}]")
+                _, field_categories, field_tags = parse_tags(task_text)
+            _, text_categories, text_tags = parse_tags(task_text)
+            categories = merge_and_dedup_case_insensitive(field_categories, text_categories)
+            tags = merge_and_dedup_case_insensitive(field_tags, text_tags)
+            display_text = task_text
+            for cat in categories:
+                if not any(f"@{cat.lower()}" == part.lower() for part in display_text.split() if part.startswith("@")):
+                    display_text += f" @{cat}"
+            for tag in tags:
+                if not any(f"#{tag.lower()}" == part.lower() for part in display_text.split() if part.startswith("#")):
+                    display_text += f" #{tag}"
+            display_text = display_text.strip()
+            formatted_task = format_task_with_tags(display_text, categories, tags, USE_PLAIN)
+            if USE_PLAIN:
+                safe_print(display_text + f" [{ts}]")
+            else:
+                safe_print(f"{style(GREEN)}{formatted_task}{style(RESET)} [{ts}]")
     else:
-        if filter_categories:
+        if filter_categories or filter_tags:
             safe_print("No completed tasks match the filter.")
         else:
             safe_print("No completed tasks yet.")
     
     # Display active task (if it matches filter)
     if today["todo"]:
-        # Check if active task matches filter
-        if filter_single_task_by_categories(today["todo"], filter_categories):
-            # Handle both old format (string) and new format (dict)
-            if isinstance(today["todo"], dict):
-                task_text = today["todo"]["task"]
-                categories = today["todo"].get("categories", [])
-                tags = today["todo"].get("tags", [])
+        if isinstance(today["todo"], dict):
+            # Always check for top-level fields first
+            if "categories" in today["todo"] or "tags" in today["todo"]:
+                field_categories = today["todo"].get("categories", [])
+                field_tags = today["todo"].get("tags", [])
+                task_text = today["todo"].get("task", "")
+            elif "task" in today["todo"]:
+                if isinstance(today["todo"]["task"], dict):
+                    task_text = today["todo"]["task"]["task"]
+                    field_categories = today["todo"]["task"].get("categories", [])
+                    field_tags = today["todo"]["task"].get("tags", [])
+                else:
+                    task_text = today["todo"]["task"]
+                    _, field_categories, field_tags = parse_tags(task_text)
             else:
-                # Legacy format - parse tags from text
-                task_text = today["todo"]
-                _, categories, tags = parse_tags(task_text)
-            
-            # Format the active task with tag highlighting
-            formatted_task = format_task_with_tags(task_text, categories, tags, USE_PLAIN)
-            safe_print(f"{style(BOLD+CYAN)}{formatted_task}{style(RESET)}")
+                task_text = str(today["todo"])
         else:
-            if filter_categories:
-                safe_print(f"{style(GRAY)}No active task matches filter{style(RESET)}")
+            task_text = today["todo"]
+            _, field_categories, field_tags = parse_tags(task_text)
+        _, text_categories, text_tags = parse_tags(task_text)
+        categories = merge_and_dedup_case_insensitive(field_categories, text_categories)
+        tags = merge_and_dedup_case_insensitive(field_tags, text_tags)
+        matches_filter = True
+        if filter_categories or filter_tags:
+            matches_filter = filter_single_task_by_tags_or_categories(today["todo"], filter_categories, filter_tags)
+        if matches_filter:
+            display_text = task_text
+            for cat in categories:
+                if not any(f"@{cat.lower()}" == part.lower() for part in display_text.split() if part.startswith("@")):
+                    display_text += f" @{cat}"
+            for tag in tags:
+                if not any(f"#{tag.lower()}" == part.lower() for part in display_text.split() if part.startswith("#")):
+                    display_text += f" #{tag}"
+            display_text = f"Active task {display_text.strip()}"
+            formatted_task = format_task_with_tags(display_text, categories, tags, USE_PLAIN)
+            if USE_PLAIN:
+                safe_print(display_text)
             else:
-                safe_print(f"{style(GRAY)}TBD{style(RESET)}")
+                safe_print(f"{style(BOLD+CYAN)}{formatted_task}{style(RESET)}")
+        else:
+            safe_print(f"{style(GRAY)}No active task matches filter{style(RESET)}")
+            safe_print("="*(17+len(today_str)+len(filter_info)))
+            return  # Do not print TBD if no active task matches filter
     else:
         safe_print(f"{style(GRAY)}TBD{style(RESET)}")
     
@@ -983,24 +1088,29 @@ def cmd_backlog(args):
     elif args.subcmd == "list":
         # Parse filter if provided
         filter_categories = []
+        filter_tags = [] # Initialize filter_tags
         if hasattr(args, 'filter') and args.filter:
-            is_valid, filter_categories, error_msg = parse_filter_categories(args.filter)
+            is_valid, filter_categories, filter_tags, error_msg = parse_filter_string(args.filter) # Update to get tags
             if not is_valid:
                 safe_print(f"{emoji('error')} {error_msg}")
                 return
         
         # Filter backlog if categories provided
         filtered_backlog = backlog
-        if filter_categories:
-            filtered_backlog = filter_tasks_by_categories(backlog, filter_categories)
+        if filter_categories or filter_tags: # Check both
+            filtered_backlog = filter_tasks_by_tags_or_categories(backlog, filter_categories, filter_tags) # Pass tags
         
         # Show filter info if filtering
         title = "Backlog"
-        if filter_categories:
+        if filter_categories or filter_tags: # Check both
             formatted_cats = ", ".join(f"@{cat}" for cat in filter_categories)
-            title = f"Backlog (filtered by: {formatted_cats})"
+            formatted_tags = ", ".join(f"#{tag}" for tag in filter_tags) # Format tags
+            parts = []
+            if formatted_cats: parts.append(formatted_cats)
+            if formatted_tags: parts.append(formatted_tags)
+            title = f"Backlog (filtered by: {', '.join(parts)})"
         
-        if not filtered_backlog and filter_categories:
+        if not filtered_backlog and (filter_categories or filter_tags): # Check both
             safe_print(f"{emoji('backlog_list')} {title}:")
             safe_print("No backlog items match the filter.")
         else:
@@ -1092,7 +1202,7 @@ def build_parser():
     
     # Add --filter to status command
     status_parser = sub.add_parser("status")
-    status_parser.add_argument("--filter", help="Filter by categories (e.g., @work,@personal)")
+    status_parser.add_argument("--filter", help="Filter by categories and/or tags (e.g., '@work,#urgent'). Remember to quote if using #.")
     status_parser.set_defaults(func=cmd_status)
     
     sub.add_parser("done").set_defaults(func=cmd_done)
@@ -1107,8 +1217,9 @@ def build_parser():
     
     # Add --filter to backlog list command
     b_list = b_sub.add_parser("list")
-    b_list.add_argument("--filter", help="Filter by categories (e.g., @work,@personal)")
+    b_list.add_argument("--filter", help="Filter by categories and/or tags (e.g., '@work,#urgent'). Remember to quote if using #.")
     b_list.set_defaults(func=cmd_backlog)
+    
     
     b_pull = b_sub.add_parser("pull", help="Pull next backlog item as active")
     b_pull.add_argument("--index", type=int, help="Select specific backlog item by 1-based index")

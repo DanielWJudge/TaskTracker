@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch, mock_open
 from tasker import load, save, ensure_today, get_backlog
+import os
 
 
 class TestLoad:
@@ -88,23 +89,37 @@ class TestDataStructure:
     
     def test_ensure_today_new_data(self, mock_datetime):
         """Test ensure_today with empty data."""
-        data = {}
-        today = ensure_today(data)
-        
-        assert "backlog" in data
-        assert data["backlog"] == []
-        assert "2025-05-30" in data  # mocked date
-        assert today["todo"] is None
-        assert today["done"] == []
+        old_env = os.environ.get("TASKER_TODAY_KEY")
+        os.environ["TASKER_TODAY_KEY"] = "2025-05-30"
+        try:
+            data = {}
+            today = ensure_today(data)
+            assert "backlog" in data
+            assert data["backlog"] == []
+            assert "2025-05-30" in data  # mocked date
+            assert today["todo"] is None
+            assert today["done"] == []
+        finally:
+            if old_env is not None:
+                os.environ["TASKER_TODAY_KEY"] = old_env
+            else:
+                del os.environ["TASKER_TODAY_KEY"]
     
     def test_ensure_today_existing_data(self, sample_data):
         """Test ensure_today with existing data."""
-        original_backlog = sample_data["backlog"].copy()
-        today = ensure_today(sample_data)
-        
-        # Should preserve existing backlog
-        assert sample_data["backlog"] == original_backlog
-        assert today["todo"] == "Current active task"
+        old_env = os.environ.get("TASKER_TODAY_KEY")
+        os.environ["TASKER_TODAY_KEY"] = "2025-05-30"
+        try:
+            original_backlog = sample_data["backlog"].copy()
+            today = ensure_today(sample_data)
+            # Should preserve existing backlog
+            assert sample_data["backlog"] == original_backlog
+            assert today["todo"] == "Current active task"
+        finally:
+            if old_env is not None:
+                os.environ["TASKER_TODAY_KEY"] = old_env
+            else:
+                del os.environ["TASKER_TODAY_KEY"]
     
     def test_get_backlog_new_data(self):
         """Test get_backlog creates backlog if missing."""
