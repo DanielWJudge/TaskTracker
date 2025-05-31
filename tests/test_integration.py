@@ -76,7 +76,6 @@ class TestCLIIntegration:
             return json.loads(temp_storage.read_text(encoding='utf-8'))
         return {}
 
-
 class TestBasicWorkflows(TestCLIIntegration):
     """Test basic daily workflows."""
     
@@ -109,7 +108,11 @@ class TestBasicWorkflows(TestCLIIntegration):
         # Verify task was stored
         data = self.load_storage(temp_storage)
         today_key = [k for k in data.keys() if k.startswith("2025-")][0]
-        assert "Write integration tests" in data[today_key]["todo"]
+        todo_task = data[today_key]["todo"]
+        if isinstance(todo_task, dict):
+            assert todo_task["task"] == "Write integration tests"
+        else:
+            assert "Write integration tests" in todo_task
     
     def test_status_workflow(self, temp_project_dir):
         """Test status display."""
@@ -147,7 +150,11 @@ class TestBasicWorkflows(TestCLIIntegration):
         today_key = [k for k in data.keys() if k.startswith("2025-")][0]
         assert data[today_key]["todo"] is None
         assert len(data[today_key]["done"]) == 1
-        assert "Complete this task" in data[today_key]["done"][0]["task"]
+        done_task = data[today_key]["done"][0]["task"]
+        if isinstance(done_task, dict):
+            assert done_task["task"] == "Complete this task"
+        else:
+            assert "Complete this task" in done_task
 
 
 class TestBacklogWorkflows(TestCLIIntegration):
@@ -196,7 +203,11 @@ class TestBacklogWorkflows(TestCLIIntegration):
         # Verify task is now active and backlog reduced
         data = self.load_storage(temp_storage)
         today_key = [k for k in data.keys() if k.startswith("2025-")][0]
-        assert "Backlog task 1" in data[today_key]["todo"]
+        todo_task = data[today_key]["todo"]
+        if isinstance(todo_task, dict):
+            assert todo_task["task"] == "Backlog task 1"
+        else:
+            assert "Backlog task 1" in todo_task
         assert len(data["backlog"]) == 1
         assert "Backlog task 2" in data["backlog"][0]["task"]
     
@@ -220,7 +231,6 @@ class TestBacklogWorkflows(TestCLIIntegration):
         assert len(data["backlog"]) == 2
         assert "Keep this" in data["backlog"][0]["task"]
         assert "Keep this too" in data["backlog"][1]["task"]
-
 
 class TestComplexWorkflows(TestCLIIntegration):
     """Test complex multi-step workflows."""
@@ -261,10 +271,18 @@ class TestComplexWorkflows(TestCLIIntegration):
         
         # Should have completed task
         assert len(data[today_key]["done"]) == 1
-        assert "Current task" in data[today_key]["done"][0]["task"]
+        done_task = data[today_key]["done"][0]["task"]
+        if isinstance(done_task, dict):
+            assert done_task["task"] == "Current task"
+        else:
+            assert "Current task" in done_task
         
         # Should have pulled task as active
-        assert "Future task A" in data[today_key]["todo"]
+        todo_task = data[today_key]["todo"]
+        if isinstance(todo_task, dict):
+            assert todo_task["task"] == "Future task A"
+        else:
+            assert "Future task A" in todo_task
         
         # Should have remaining backlog items
         assert len(data["backlog"]) == 2  # Future task B + Another task
@@ -289,7 +307,11 @@ class TestComplexWorkflows(TestCLIIntegration):
         # Verify state
         data = self.load_storage(temp_storage)
         today_key = [k for k in data.keys() if k.startswith("2025-")][0]
-        assert data[today_key]["todo"] == "Second task"
+        todo_task = data[today_key]["todo"]
+        if isinstance(todo_task, dict):
+            assert todo_task["task"] == "Second task"
+        else:
+            assert todo_task == "Second task"
         assert len(data[today_key]["done"]) == 1
     
     def test_multiple_day_persistence(self, temp_project_dir):
@@ -317,7 +339,6 @@ class TestComplexWorkflows(TestCLIIntegration):
         result = self.run_cli(temp_tasker, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "Pulled from backlog:" in result.stdout
-
 
 class TestErrorHandling(TestCLIIntegration):
     """Test error conditions and edge cases."""
@@ -387,14 +408,17 @@ class TestErrorHandling(TestCLIIntegration):
         # Verify first task is still active
         data = self.load_storage(temp_storage)
         today_key = [k for k in data.keys() if k.startswith("2025-")][0]
-        assert "First task" in data[today_key]["todo"]
+        todo_task = data[today_key]["todo"]
+        if isinstance(todo_task, dict):
+            assert todo_task["task"] == "First task"
+        else:
+            assert "First task" in todo_task
         
         # Try to pull when active task exists
         self.run_cli(temp_tasker, temp_storage, "backlog add 'Backlog item'")
         result = self.run_cli(temp_tasker, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "Active task already exists" in result.stdout
-
 
 class TestDataPersistence(TestCLIIntegration):
     """Test data persistence and storage integrity."""
@@ -467,8 +491,6 @@ class TestDataPersistence(TestCLIIntegration):
             assert '✅' not in line
             assert '🎉' not in line
             assert '📋' not in line
-
-
 class TestCommandLineArgs(TestCLIIntegration):
     """Test command line argument handling."""
     

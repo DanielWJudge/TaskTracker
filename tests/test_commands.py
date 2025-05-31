@@ -28,15 +28,29 @@ class TestCmdAdd:
         assert "Added: Test task" in captured.out
         assert "=== TODAY:" in captured.out  # status should be shown
         
-        # Check data was saved
+        # Check data was saved - now expecting structured format
         data = tasker.load()
         today = tasker.ensure_today(data)
-        assert today["todo"] == "Test task"
+        assert isinstance(today["todo"], dict)
+        assert today["todo"]["task"] == "Test task"
+        assert today["todo"]["categories"] == []
+        assert today["todo"]["tags"] == []
     
     def test_add_task_when_active_task_exists_decline(self, temp_storage, plain_mode, capsys):
         """Test adding task when active task exists and user declines backlog."""
-        # Setup existing active task
-        data = {"2025-05-30": {"todo": "Existing task", "done": []}, "backlog": []}
+        # Setup existing active task - use new format
+        data = {
+            "2025-05-30": {
+                "todo": {
+                    "task": "Existing task",
+                    "categories": [],
+                    "tags": [],
+                    "ts": "2025-05-30T10:00:00"
+                },
+                "done": []
+            },
+            "backlog": []
+        }
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
         args = MagicMock()
@@ -55,8 +69,19 @@ class TestCmdAdd:
     @patch('tasker.save', return_value=True)
     def test_add_task_when_active_task_exists_accept_backlog(self, mock_save, temp_storage, plain_mode, capsys):
         """Test adding task to backlog when active task exists and user accepts."""
-        # Setup existing active task
-        data = {"2025-05-30": {"todo": "Existing task", "done": []}, "backlog": []}
+        # Setup existing active task - use new format
+        data = {
+            "2025-05-30": {
+                "todo": {
+                    "task": "Existing task",
+                    "categories": [],
+                    "tags": [],
+                    "ts": "2025-05-30T10:00:00"
+                },
+                "done": []
+            },
+            "backlog": []
+        }
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
         args = MagicMock()
@@ -91,10 +116,11 @@ class TestCmdAdd:
         
         cmd_add(args)
         
-        # Check that whitespace was stripped
+        # Check that whitespace was stripped - now expecting structured format
         data = tasker.load()
         today = tasker.ensure_today(data)
-        assert today["todo"] == "Test task with spaces"
+        assert isinstance(today["todo"], dict)
+        assert today["todo"]["task"] == "Test task with spaces"
 
 
 class TestCmdDone:
@@ -112,7 +138,7 @@ class TestCmdDone:
     @patch('tasker.handle_next_task_selection')
     def test_done_with_active_task(self, mock_handle_next, temp_storage, plain_mode, mock_datetime, capsys):
         """Test completing an active task."""
-        # Setup active task
+        # Setup active task - use legacy string format to test migration
         data = {"2025-05-30": {"todo": "Test task", "done": []}, "backlog": []}
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
@@ -129,7 +155,9 @@ class TestCmdDone:
         today = tasker.ensure_today(updated_data)
         assert today["todo"] is None
         assert len(today["done"]) == 1
-        assert today["done"][0]["task"] == "Test task"
+        # Task should now be stored in structured format
+        assert isinstance(today["done"][0]["task"], dict)
+        assert today["done"][0]["task"]["task"] == "Test task"
         
         # Check that next task selection was called
         mock_handle_next.assert_called_once()
@@ -167,7 +195,9 @@ class TestCompleteCurrentTask:
         # Check task was moved to done
         assert today["todo"] is None
         assert len(today["done"]) == 1
-        assert today["done"][0]["task"] == "Test task"
+        # Task should be stored in structured format
+        assert isinstance(today["done"][0]["task"], dict)
+        assert today["done"][0]["task"]["task"] == "Test task"
         assert today["done"][0]["ts"] == "2025-05-30T12:00:00"
         assert "id" in today["done"][0]
 
@@ -197,8 +227,9 @@ class TestHandleNextTaskSelection:
         assert "Pulled from backlog:" in captured.out
         assert "Second task" in captured.out
         
-        # Check data was updated
-        assert today["todo"] == "Second task"
+        # Check data was updated - now expecting structured format
+        assert isinstance(today["todo"], dict)
+        assert today["todo"]["task"] == "Second task"
         assert len(data["backlog"]) == 1  # one item removed
         assert data["backlog"][0]["task"] == "First task"  # correct item remained
     
@@ -235,8 +266,9 @@ class TestHandleNextTaskSelection:
         assert "Added:" in captured.out
         assert "New interactive task" in captured.out
         
-        # Check data was updated
-        assert today["todo"] == "New interactive task"
+        # Check data was updated - now expecting structured format
+        assert isinstance(today["todo"], dict)
+        assert today["todo"]["task"] == "New interactive task"
     
     def test_skip_adding_task(self, plain_mode):
         """Test skipping task addition (empty input)."""
@@ -277,6 +309,7 @@ class TestCmdStatus:
     
     def test_status_with_active_task(self, temp_storage, plain_mode, capsys):
         """Test status display with active task."""
+        # Use legacy string format to test backward compatibility
         data = {"2025-05-30": {"todo": "Current task", "done": []}, "backlog": []}
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
@@ -357,11 +390,13 @@ class TestCmdBacklog:
         captured = capsys.readouterr()
         assert "Backlog task added: Backlog task" in captured.out
         
-        # Check data was saved
+        # Check data was saved - now expecting structured format
         data = tasker.load()
         backlog = tasker.get_backlog(data)
         assert len(backlog) == 1
         assert backlog[0]["task"] == "Backlog task"
+        assert backlog[0]["categories"] == []
+        assert backlog[0]["tags"] == []
     
     def test_backlog_add_invalid_task(self, temp_storage, plain_mode, capsys):
         """Test adding invalid task to backlog."""
@@ -411,7 +446,15 @@ class TestCmdBacklog:
         """Test pulling from backlog when active task exists."""
         data = {
             "backlog": [{"task": "Backlog task", "ts": "2025-05-30T10:00:00"}],
-            "2025-05-30": {"todo": "Active task", "done": []}
+            "2025-05-30": {
+                "todo": {
+                    "task": "Active task",
+                    "categories": [],
+                    "tags": [],
+                    "ts": "2025-05-30T10:00:00"
+                },
+                "done": []
+            }
         }
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
