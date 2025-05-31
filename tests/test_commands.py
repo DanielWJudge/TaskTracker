@@ -20,17 +20,19 @@ class TestCmdAdd:
         # Create mock args
         args = MagicMock()
         args.task = "Test task"
+        args.store = str(temp_storage) # Ensure cmd_add uses temp_storage
         
-        cmd_add(args)
-        
-        # Check output
-        captured = capsys.readouterr()
-        assert "Added: Test task" in captured.out
-        assert "=== TODAY:" in captured.out  # status should be shown
-        
-        # Check data was saved - now expecting structured format
-        data = tasker.load()
-        today = tasker.ensure_today(data)
+        with patch('tasker.STORE', temp_storage): # Patch STORE for tasker.load()
+            cmd_add(args)
+            
+            # Check output
+            captured = capsys.readouterr()
+            assert "Added: Test task" in captured.out
+            assert "=== TODAY:" in captured.out  # status should be shown
+            
+            # Check data was saved - now expecting structured format
+            data = tasker.load() # Loads from temp_storage due to patch
+            today = tasker.ensure_today(data)
         assert isinstance(today["todo"], dict)
         assert today["todo"]["task"] == "Test task"
         assert today["todo"]["categories"] == []
@@ -55,8 +57,9 @@ class TestCmdAdd:
         
         args = MagicMock()
         args.task = "New task"
-        
-        with patch('tasker.safe_input', return_value='n'):
+        args.store = str(temp_storage)
+        with patch('tasker.safe_input', return_value='n'), \
+             patch('tasker.today_key', return_value='2025-05-30'):
             cmd_add(args)
         
         captured = capsys.readouterr()
@@ -86,8 +89,9 @@ class TestCmdAdd:
         
         args = MagicMock()
         args.task = "New task"
-        
-        with patch('tasker.safe_input', return_value='y'):
+        args.store = str(temp_storage)
+        with patch('tasker.safe_input', return_value='y'), \
+             patch('tasker.today_key', return_value='2025-05-30'):
             cmd_add(args)
         
         captured = capsys.readouterr()
@@ -98,7 +102,7 @@ class TestCmdAdd:
         """Test adding an invalid task name."""
         args = MagicMock()
         args.task = ""  # empty task
-        
+        args.store = str(temp_storage)
         cmd_add(args)
         
         captured = capsys.readouterr()
@@ -113,7 +117,7 @@ class TestCmdAdd:
         """Test adding task with leading/trailing whitespace."""
         args = MagicMock()
         args.task = "  Test task with spaces  "
-        
+        args.store = str(temp_storage)
         cmd_add(args)
         
         # Check that whitespace was stripped - now expecting structured format
@@ -143,21 +147,33 @@ class TestCmdDone:
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
         args = MagicMock()
+        args.store = str(temp_storage) # Ensure cmd_done uses temp_storage
         
-        cmd_done(args)
+        captured_out = ""
+        today_data_after_cmd = None
+
+        with patch('tasker.today_key', return_value='2025-05-30'), \
+             patch('tasker.STORE', temp_storage): # Patch global STORE for the test's load and ensure_today
+            cmd_done(args)
+            
+            # Capture output from cmd_done itself
+            # capsys needs to be read after the command if we want its output
+            # but for data checks, load must happen under the same patch.
+            captured = capsys.readouterr() # Capture output of cmd_done
+            captured_out = captured.out
+
+            # Check data was updated by loading within the patch context
+            updated_data = tasker.load() # Should load from temp_storage due to patch
+            today_data_after_cmd = tasker.ensure_today(updated_data)
         
-        captured = capsys.readouterr()
-        assert "Completed:" in captured.out
-        assert "Test task" in captured.out
+        assert "Completed:" in captured_out
+        assert "Test task" in captured_out
         
-        # Check data was updated
-        updated_data = tasker.load()
-        today = tasker.ensure_today(updated_data)
-        assert today["todo"] is None
-        assert len(today["done"]) == 1
+        assert today_data_after_cmd["todo"] is None
+        assert len(today_data_after_cmd["done"]) == 1
         # Task should now be stored in structured format
-        assert isinstance(today["done"][0]["task"], dict)
-        assert today["done"][0]["task"]["task"] == "Test task"
+        assert isinstance(today_data_after_cmd["done"][0]["task"], dict)
+        assert today_data_after_cmd["done"][0]["task"]["task"] == "Test task"
         
         # Check that next task selection was called
         mock_handle_next.assert_called_once()
@@ -169,9 +185,11 @@ class TestCmdDone:
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
         args = MagicMock()
+        args.store = str(temp_storage) # Ensure cmd_done uses temp_storage
         
         with patch('tasker.save', return_value=False) as mock_save, \
-             patch('tasker.handle_next_task_selection') as mock_handle_next:
+             patch('tasker.handle_next_task_selection') as mock_handle_next, \
+             patch('tasker.today_key', return_value='2025-05-30'):
             cmd_done(args)
             
             # With the updated code, cmd_done returns early if save fails
@@ -186,7 +204,8 @@ class TestCompleteCurrentTask:
         """Test marking current task as complete."""
         today = {"todo": "Test task", "done": []}
         
-        complete_current_task(today)
+        with patch('tasker.today_key', return_value='2025-05-30'): # Not strictly necessary here but good for consistency
+            complete_current_task(today)
         
         captured = capsys.readouterr()
         assert "Completed:" in captured.out
@@ -219,7 +238,8 @@ class TestHandleNextTaskSelection:
         
         with patch('tasker.safe_input', return_value='2'), \
              patch('tasker.save', return_value=True), \
-             patch('tasker.cmd_status'):
+             patch('tasker.cmd_status'), \
+             patch('tasker.today_key', return_value='2025-05-30'):
             
             handle_next_task_selection(data, today)
         
@@ -241,7 +261,8 @@ class TestHandleNextTaskSelection:
         }
         today = data["2025-05-30"]
         
-        with patch('tasker.safe_input', return_value='5'):  # invalid index
+        with patch('tasker.safe_input', return_value='5'), \
+             patch('tasker.today_key', return_value='2025-05-30'):  # invalid index
             handle_next_task_selection(data, today)
         
         captured = capsys.readouterr()
@@ -258,7 +279,8 @@ class TestHandleNextTaskSelection:
         
         with patch('tasker.safe_input', side_effect=['n', 'New interactive task']), \
              patch('tasker.save', return_value=True), \
-             patch('tasker.cmd_status'):
+             patch('tasker.cmd_status'), \
+             patch('tasker.today_key', return_value='2025-05-30'):
             
             handle_next_task_selection(data, today)
         
@@ -275,7 +297,8 @@ class TestHandleNextTaskSelection:
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
         
-        with patch('tasker.safe_input', return_value=''):  # empty = skip
+        with patch('tasker.safe_input', return_value=''), \
+             patch('tasker.today_key', return_value='2025-05-30'): # User presses Enter
             handle_next_task_selection(data, today)
         
         # Check nothing was changed
@@ -286,7 +309,8 @@ class TestHandleNextTaskSelection:
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
         
-        with patch('tasker.safe_input', return_value=None):  # cancelled input
+        with patch('tasker.safe_input', return_value=None), \
+             patch('tasker.today_key', return_value='2025-05-30'): # safe_input returns None on cancel
             handle_next_task_selection(data, today)
         
         # Check nothing was changed
@@ -299,9 +323,12 @@ class TestCmdStatus:
     def test_status_no_tasks(self, temp_storage, plain_mode, capsys):
         """Test status display with no tasks."""
         args = MagicMock()
-        
-        cmd_status(args)
-        
+        args.store = str(temp_storage) # Ensure cmd_status uses temp_storage
+        args.filter = None # Ensure filter is None if not provided
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
+            cmd_status(args)
+
         captured = capsys.readouterr()
         assert "=== TODAY: 2025-05-30 ===" in captured.out
         assert "No completed tasks yet." in captured.out
@@ -314,9 +341,12 @@ class TestCmdStatus:
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
         
         args = MagicMock()
-        
-        cmd_status(args)
-        
+        args.store = str(temp_storage) # Ensure cmd_status uses temp_storage
+        args.filter = None # Ensure filter is None if not provided
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
+            cmd_status(args)
+
         captured = capsys.readouterr()
         assert "=== TODAY: 2025-05-30 ===" in captured.out
         assert "Current task" in captured.out
@@ -325,20 +355,24 @@ class TestCmdStatus:
         """Test status display with completed tasks."""
         data = {
             "2025-05-30": {
-                "todo": "Active task",
+                "todo": "Active task", # Use new format for active task
                 "done": [
-                    {"id": "abc123", "task": "Completed task 1", "ts": "2025-05-30T09:00:00"},
-                    {"id": "def456", "task": "Completed task 2", "ts": "2025-05-30T10:30:00"}
+                    # Use new dict format for completed tasks
+                    {"id": "abc123", "task": {"task":"Completed task 1", "categories":[], "tags":[]}, "ts": "2025-05-30T09:00:00"},
+                    {"id": "def456", "task": {"task":"Completed task 2", "categories":[], "tags":[]}, "ts": "2025-05-30T10:30:00"}
                 ]
             },
             "backlog": []
         }
         temp_storage.write_text(json.dumps(data), encoding='utf-8')
-        
+
         args = MagicMock()
-        
-        cmd_status(args)
-        
+        args.store = str(temp_storage) # Ensure cmd_status uses temp_storage
+        args.filter = None # Ensure filter is None if not provided
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
+            cmd_status(args)
+
         captured = capsys.readouterr()
         assert "Completed task 1" in captured.out
         assert "Completed task 2" in captured.out
@@ -352,23 +386,31 @@ class TestCmdNewday:
     def test_newday_initialization(self, temp_storage, plain_mode, capsys):
         """Test new day initialization."""
         args = MagicMock()
+        args.store = str(temp_storage) # Ensure cmd_newday uses temp_storage
         
-        cmd_newday(args)
+        today_key_val = '2025-05-30'
+        loaded_data_after_cmd = None
+
+        with patch('tasker.today_key', return_value=today_key_val), \
+             patch('tasker.STORE', temp_storage): # Patch STORE for tasker.load()
+            cmd_newday(args)
+            loaded_data_after_cmd = tasker.load() # Load within patch context
         
         captured = capsys.readouterr()
         assert "New day initialized" in captured.out
-        assert "2025-05-30" in captured.out
+        assert today_key_val in captured.out
         
-        # Check data structure was created (should be in file since mocking was removed)
-        data = tasker.load()
-        assert "2025-05-30" in data
-        assert "backlog" in data
+        # Check data structure was created
+        assert today_key_val in loaded_data_after_cmd
+        assert "backlog" in loaded_data_after_cmd
     
     def test_newday_save_failure(self, temp_storage, plain_mode, capsys):
         """Test new day initialization when save fails."""
         args = MagicMock()
+        args.store = str(temp_storage) # Ensure cmd_newday uses temp_storage
         
-        with patch('tasker.save', return_value=False):
+        with patch('tasker.save', return_value=False), \
+             patch('tasker.today_key', return_value='2025-05-30'):
             cmd_newday(args)
         
         captured = capsys.readouterr()
@@ -384,25 +426,29 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "add"
         args.task = "Backlog task"
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
-        cmd_backlog(args)
-        
+        backlog_after_cmd = None
+        with patch('tasker.STORE', temp_storage): # Patch STORE for tasker.load()
+            cmd_backlog(args)
+            # Check data was saved - now expecting structured format
+            data = tasker.load() # Loads from temp_storage
+            backlog_after_cmd = tasker.get_backlog(data)
+
         captured = capsys.readouterr()
         assert "Backlog task added: Backlog task" in captured.out
         
-        # Check data was saved - now expecting structured format
-        data = tasker.load()
-        backlog = tasker.get_backlog(data)
-        assert len(backlog) == 1
-        assert backlog[0]["task"] == "Backlog task"
-        assert backlog[0]["categories"] == []
-        assert backlog[0]["tags"] == []
+        assert len(backlog_after_cmd) == 1
+        assert backlog_after_cmd[0]["task"] == "Backlog task"
+        assert backlog_after_cmd[0]["categories"] == []
+        assert backlog_after_cmd[0]["tags"] == []
     
     def test_backlog_add_invalid_task(self, temp_storage, plain_mode, capsys):
         """Test adding invalid task to backlog."""
         args = MagicMock()
         args.subcmd = "add"
         args.task = ""  # empty task
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         cmd_backlog(args)
         
@@ -414,6 +460,7 @@ class TestCmdBacklog:
         """Test listing empty backlog."""
         args = MagicMock()
         args.subcmd = "list"
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         cmd_backlog(args)
         
@@ -433,6 +480,7 @@ class TestCmdBacklog:
         
         args = MagicMock()
         args.subcmd = "list"
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         cmd_backlog(args)
         
@@ -461,20 +509,29 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "pull"
         args.index = None
-        
-        cmd_backlog(args)
-        
+        args.filter = None # Ensure filter is None for status call
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
+            cmd_backlog(args)
+
         captured = capsys.readouterr()
         assert "Active task already exists" in captured.out
     
     def test_backlog_pull_empty_backlog(self, temp_storage, plain_mode, capsys):
         """Test pulling from empty backlog."""
+        data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
+        temp_storage.write_text(json.dumps(data), encoding='utf-8')
+        
         args = MagicMock()
         args.subcmd = "pull"
         args.index = None
-        
-        cmd_backlog(args)
-        
+        args.filter = None
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
+            cmd_backlog(args)
+
         captured = capsys.readouterr()
         assert "No backlog items to pull" in captured.out
     
@@ -492,10 +549,10 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "pull"
         args.index = 2  # pull second item
-        
-        with patch('tasker.save', return_value=True), \
-             patch('tasker.cmd_status'):
-            
+        args.filter = None
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
+
+        with patch('tasker.today_key', return_value='2025-05-30'):
             cmd_backlog(args)
         
         captured = capsys.readouterr()
@@ -516,6 +573,7 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "remove"
         args.index = 1  # remove first item (1-based)
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         with patch('tasker.save', return_value=True):
             cmd_backlog(args)
@@ -535,6 +593,7 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "remove"
         args.index = 5  # invalid index
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         cmd_backlog(args)
         
@@ -547,6 +606,7 @@ class TestCmdBacklog:
         args = MagicMock()
         args.subcmd = "remove"
         args.index = 1
+        args.store = str(temp_storage) # Ensure cmd_backlog uses temp_storage
         
         cmd_backlog(args)
         

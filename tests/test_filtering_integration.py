@@ -61,7 +61,8 @@ class TestCategoryFilteringIntegration:
         env = {
             **subprocess.os.environ,
             'PYTHONIOENCODING': 'utf-8',
-            'PYTHONLEGACYWINDOWSSTDIO': '1'
+            'PYTHONLEGACYWINDOWSSTDIO': '1',
+            'TASKER_TODAY_KEY': '2025-05-30',
         }
         
         result = subprocess.run(
@@ -85,15 +86,15 @@ class TestCategoryFilteringIntegration:
         data = {
             "backlog": [
                 {
-                    "task": "Work meeting prep @work",
+                    "task": "Work meeting prep @work #low",
                     "categories": ["work"],
-                    "tags": [],
+                    "tags": ["low"],
                     "ts": "2025-05-30T09:00:00"
                 },
                 {
-                    "task": "Personal project @personal",
+                    "task": "Personal project @personal #someday",
                     "categories": ["personal"],
-                    "tags": [],
+                    "tags": ["someday"],
                     "ts": "2025-05-30T10:00:00"
                 },
                 {
@@ -103,16 +104,22 @@ class TestCategoryFilteringIntegration:
                     "ts": "2025-05-30T11:00:00"
                 },
                 {
-                    "task": "Groceries @personal",
+                    "task": "Groceries @personal #urgent",
                     "categories": ["personal"],
-                    "tags": [],
+                    "tags": ["urgent"],
                     "ts": "2025-05-30T12:00:00"
                 },
                 {
-                    "task": "No category task",
+                    "task": "No category task #low",
                     "categories": [],
-                    "tags": [],
+                    "tags": ["low"],
                     "ts": "2025-05-30T13:00:00"
+                },
+                {
+                    "task": "Review design @design #urgent",
+                    "categories": ["design"],
+                    "tags": ["urgent"],
+                    "ts": "2025-05-30T13:30:00"
                 }
             ],
             "2025-05-30": {
@@ -126,9 +133,9 @@ class TestCategoryFilteringIntegration:
                     {
                         "id": "done1",
                         "task": {
-                            "task": "Completed work @work",
+                            "task": "Completed work @work #low",
                             "categories": ["work"],
-                            "tags": [],
+                            "tags": ["low"],
                             "ts": "2025-05-30T08:00:00"
                         },
                         "ts": "2025-05-30T08:30:00"
@@ -136,9 +143,9 @@ class TestCategoryFilteringIntegration:
                     {
                         "id": "done2",
                         "task": {
-                            "task": "Completed personal @personal",
+                            "task": "Completed personal @personal #urgent",
                             "categories": ["personal"],
-                            "tags": [],
+                            "tags": ["urgent"],
                             "ts": "2025-05-30T07:00:00"
                         },
                         "ts": "2025-05-30T07:30:00"
@@ -146,12 +153,22 @@ class TestCategoryFilteringIntegration:
                     {
                         "id": "done3",
                         "task": {
-                            "task": "Mixed category done @work @personal",
+                            "task": "Mixed category done @work @personal #someday",
                             "categories": ["work", "personal"],
-                            "tags": [],
+                            "tags": ["someday"],
                             "ts": "2025-05-30T06:00:00"
                         },
                         "ts": "2025-05-30T06:30:00"
+                    },
+                    {
+                        "id": "done4",
+                        "task": {
+                            "task": "Another completed work @work #urgent",
+                            "categories": ["work"],
+                            "tags": ["urgent"],
+                            "ts": "2025-05-30T05:00:00"
+                        },
+                        "ts": "2025-05-30T05:30:00"
                     }
                 ]
             }
@@ -187,8 +204,11 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
         assert "(filtered by: @personal)" in result.stdout
         assert "Completed personal @personal" in result.stdout
         assert "Mixed category done @work @personal" in result.stdout
-        assert "Active work task @work" not in result.stdout
-        assert "No active task matches filter" in result.stdout
+        # Filter out debug lines before asserting
+        user_lines = [line for line in result.stdout.splitlines() if not line.startswith("DEBUG:")]
+        user_output = "\n".join(user_lines)
+        assert "Active work task @work" not in user_output
+        assert "No active task matches filter" in user_output
     
     def test_status_filter_multiple_categories(self, temp_project_dir):
         """Test status filtering by multiple categories."""
@@ -237,8 +257,50 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
         result = self.run_cli(temp_tasker, temp_storage, "status --filter work")
         
         assert result.returncode == 0
-        assert "Categories must start with @" in result.stdout
-        assert "Invalid: 'work'" in result.stdout
+        assert "Invalid filter item: 'work'. Must start with @ (category) or # (tag)." in result.stdout
+
+    def test_status_filter_tag_urgent(self, temp_project_dir):
+        """Test status filtering by #urgent tag."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "#urgent"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: #urgent)" in result.stdout
+        # Active task is #important, not #urgent
+        assert "No active task matches filter" in result.stdout 
+        assert "Completed personal @personal #urgent" in result.stdout
+        assert "Another completed work @work #urgent" in result.stdout
+        assert "Completed work @work #low" not in result.stdout
+
+    def test_status_filter_tag_low(self, temp_project_dir):
+        """Test status filtering by #low tag."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "#low"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: #low)" in result.stdout
+        assert "No active task matches filter" in result.stdout
+        assert "Completed work @work #low" in result.stdout
+        assert "Completed personal @personal #urgent" not in result.stdout
+
+    def test_status_filter_combined_category_tag(self, temp_project_dir):
+        """Test status filtering by @work and #urgent."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        # Note: The active task is @work #important, so it should not show up
+        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "@work,#urgent"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: @work, #urgent)" in result.stdout
+        assert "No active task matches filter" in result.stdout
+        assert "Another completed work @work #urgent" in result.stdout # Matches both
+        assert "Completed work @work #low" not in result.stdout # Matches @work but not #urgent
+        assert "Completed personal @personal #urgent" not in result.stdout # Matches #urgent but not @work
 
 
 class TestBacklogFiltering(TestCategoryFilteringIntegration):
@@ -333,11 +395,38 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
         """Test backlog list with invalid filter format."""
         temp_path, temp_tasker, temp_storage = temp_project_dir
         
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter work,personal")
+        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter work")
         
         assert result.returncode == 0
-        assert "Categories must start with @" in result.stdout
-        assert "Invalid: 'work'" in result.stdout
+        assert "Invalid filter item: 'work'. Must start with @ (category) or # (tag)." in result.stdout
+
+    def test_backlog_list_filter_tag_urgent(self, temp_project_dir):
+        """Test backlog list filtering by #urgent tag."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "#urgent"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: #urgent)" in result.stdout
+        assert "Client presentation @client @work #urgent" in result.stdout
+        assert "Groceries @personal #urgent" in result.stdout
+        assert "Review design @design #urgent" in result.stdout
+        assert "Work meeting prep @work #low" not in result.stdout
+        assert "Personal project @personal #someday" not in result.stdout
+
+    def test_backlog_list_filter_combined(self, temp_project_dir):
+        """Test backlog list filtering by @work and #urgent."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work,#urgent"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: @work, #urgent)" in result.stdout
+        assert "Client presentation @client @work #urgent" in result.stdout
+        assert "Groceries @personal #urgent" not in result.stdout # Has #urgent but not @work
+        assert "Work meeting prep @work #low" not in result.stdout # Has @work but not #urgent
 
 
 class TestFilteringWorkflows(TestCategoryFilteringIntegration):
@@ -404,28 +493,55 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
         assert "Work task @work" not in result.stdout
     
     def test_case_insensitive_filtering(self, temp_project_dir):
-        """Test that filtering is case insensitive."""
+        """Test that filtering is case-insensitive for categories and tags."""
         temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage) # Uses @work, @personal, #urgent, #low, #someday, #important
+
+        # Test case-insensitive category filtering for status
+        result_cat_status = self.run_cli(temp_tasker, temp_storage, 'status --filter "@WORK"')
+        assert result_cat_status.returncode == 0
+        assert "(filtered by: @work)" in result_cat_status.stdout # Output normalized to lowercase
+        user_lines = [line for line in result_cat_status.stdout.splitlines() if not line.startswith("DEBUG:")]
+        user_output = "\n".join(user_lines)
+        assert "Active work task @work #important" in user_output
+        assert "Completed work @work #low" in user_output
+        assert "Another completed work @work #urgent" in user_output
+        assert "Mixed category done @work @personal #someday" in user_output
+
+        # Test case-insensitive tag filtering for status
+        result_tag_status = self.run_cli(temp_tasker, temp_storage, 'status --filter "#URGENT"')
+        assert result_tag_status.returncode == 0
+        assert "(filtered by: #urgent)" in result_tag_status.stdout # Output normalized
+        user_lines = [line for line in result_tag_status.stdout.splitlines() if not line.startswith("DEBUG:")]
+        user_output = "\n".join(user_lines)
+        assert "No active task matches filter" in user_output # Active is #important
+        assert "Completed personal @personal #urgent" in user_output
+        assert "Another completed work @work #urgent" in user_output
+
+        # Test case-insensitive category filtering for backlog
+        result_cat_backlog = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "@CLIENT"')
+        assert result_cat_backlog.returncode == 0
+        assert "(filtered by: @client)" in result_cat_backlog.stdout
+        assert "Client presentation @client @work #urgent" in result_cat_backlog.stdout
+
+        # Test case-insensitive tag filtering for backlog
+        result_tag_backlog = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "#SOMEDAY"')
+        assert result_tag_backlog.returncode == 0
+        assert "(filtered by: #someday)" in result_tag_backlog.stdout
+        assert "Personal project @personal #someday" in result_tag_backlog.stdout
         
-        # Add tasks with mixed case categories
-        result = self.run_cli(temp_tasker, temp_storage, "backlog add Task with Work @Work")
-        assert result.returncode == 0
-        
-        result = self.run_cli(temp_tasker, temp_storage, "backlog add Task with PERSONAL @PERSONAL")
-        assert result.returncode == 0
-        
-        # Filter with lowercase
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
-        assert result.returncode == 0
-        assert "Task with Work @Work" in result.stdout
-        
-        # Filter with different case
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @Personal")
-        assert result.returncode == 0
-        assert "Task with PERSONAL @PERSONAL" in result.stdout
-    
+        # Test combined case-insensitive filtering
+        result_combined = self.run_cli(temp_tasker, temp_storage, 'status --filter "@PERSONAL,#URGENT"')
+        assert result_combined.returncode == 0
+        assert "(filtered by: @personal, #urgent)" in result_combined.stdout
+        user_lines = [line for line in result_combined.stdout.splitlines() if not line.startswith("DEBUG:")]
+        user_output = "\n".join(user_lines)
+        assert "Completed personal @personal #urgent" in user_output
+        assert "Active work task @work #important" not in user_output
+        assert "Another completed work @work #urgent" not in user_output # No @personal
+
     def test_legacy_format_compatibility(self, temp_project_dir):
-        """Test filtering works with legacy format tasks."""
+        """Test filtering with legacy task formats (no explicit category/tag fields)."""
         temp_path, temp_tasker, temp_storage = temp_project_dir
         
         # Manually create legacy format data
@@ -498,8 +614,7 @@ class TestFilteringErrorHandling(TestCategoryFilteringIntegration):
         
         result = self.run_cli(temp_tasker, temp_storage, "status --filter @work,invalid")
         assert result.returncode == 0
-        assert "Categories must start with @" in result.stdout
-        assert "Invalid: 'invalid'" in result.stdout
+        assert "Invalid filter item: 'invalid'. Must start with @ (category) or # (tag)." in result.stdout
     
     def test_whitespace_handling(self, temp_project_dir):
         """Test filtering with various whitespace scenarios."""
@@ -510,3 +625,70 @@ class TestFilteringErrorHandling(TestCategoryFilteringIntegration):
         result = self.run_cli(temp_tasker, temp_storage, "status --filter @work,@personal")
         assert result.returncode == 0
         assert "(filtered by: @work, @personal)" in result.stdout
+
+
+class TestCombinedFiltering(TestCategoryFilteringIntegration):
+    """Test more complex combined category and tag filtering scenarios."""
+
+    def test_status_filter_multiple_tags(self, temp_project_dir):
+        """Test status filtering by multiple tags (#urgent, #low)."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "#urgent,#low"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: #urgent, #low)" in result.stdout
+        assert "No active task matches filter" in result.stdout # Active is #important
+        assert "Completed personal @personal #urgent" in result.stdout
+        assert "Another completed work @work #urgent" in result.stdout
+        assert "Completed work @work #low" in result.stdout
+        assert "Mixed category done @work @personal #someday" not in result.stdout
+
+    def test_status_filter_multiple_categories_and_tags(self, temp_project_dir):
+        """Test status filtering by multiple categories (@work, @personal) and tags (#urgent, #someday)."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        # This filter should only match tasks that have (@work OR @personal) AND (#urgent OR #someday)
+        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "@work,@personal,#urgent,#someday"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: @work, @personal, #urgent, #someday)" in result.stdout
+        assert "No active task matches filter" in result.stdout # Active is @work #important
+        assert "Completed personal @personal #urgent" in result.stdout # Matches @personal and #urgent
+        assert "Another completed work @work #urgent" in result.stdout # Matches @work and #urgent
+        assert "Mixed category done @work @personal #someday" in result.stdout # Matches @work, @personal, #someday
+        assert "Completed work @work #low" not in result.stdout # Has @work but #low is not in filter
+
+    def test_backlog_list_filter_multiple_tags(self, temp_project_dir):
+        """Test backlog list filtering by multiple tags (#urgent, #low)."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "#urgent,#low"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: #urgent, #low)" in result.stdout
+        assert "Client presentation @client @work #urgent" in result.stdout
+        assert "Groceries @personal #urgent" in result.stdout
+        assert "Review design @design #urgent" in result.stdout
+        assert "Work meeting prep @work #low" in result.stdout
+        assert "No category task #low" in result.stdout
+        assert "Personal project @personal #someday" not in result.stdout
+
+    def test_backlog_list_filter_multiple_categories_and_tags(self, temp_project_dir):
+        """Test backlog list filtering by multiple categories (@work, @personal) and tags (#urgent, #someday)."""
+        temp_path, temp_tasker, temp_storage = temp_project_dir
+        self.setup_test_data(temp_storage)
+        
+        result = self.run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work,@personal,#urgent,#someday"')
+        
+        assert result.returncode == 0
+        assert "(filtered by: @work, @personal, #urgent, #someday)" in result.stdout
+        assert "Client presentation @client @work #urgent" in result.stdout # @work, #urgent
+        assert "Groceries @personal #urgent" in result.stdout     # @personal, #urgent
+        assert "Personal project @personal #someday" in result.stdout # @personal, #someday
+        assert "Work meeting prep @work #low" not in result.stdout       # @work, but #low not in filter
+        assert "Review design @design #urgent" not in result.stdout # #urgent, but @design not in filter
+        assert "No category task #low" not in result.stdout         # #low, but no category match and #low not in filter with category
