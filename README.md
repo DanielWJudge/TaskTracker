@@ -2,7 +2,7 @@
 
 _A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and ships faster._
 
-[![Tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-250%20passing-brightgreen)]()
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)]()
 [![Python](https://img.shields.io/badge/python-3.8+-blue)]()
 
@@ -32,7 +32,7 @@ Most productivity apps encourage **endless lists** that overwhelm your brain. Ta
 | 📋 **Persistent Backlog** | Future tasks survive across days. Never lose track of what matters. |
 | ⚡ **Instant Startup** | No databases, no cloud sync delays. Pure speed. |
 | 🌍 **Universal Compatibility** | Windows, macOS, Linux. Command Prompt, PowerShell, Terminal. |
-| 🛡️ **Bulletproof** | 107 automated tests. Input validation. Error recovery. |
+| 🛡️ **Bulletproof** | 250 automated tests. Input validation. Error recovery. |
 | 🎨 **Beautiful Output** | Color + emoji when available, clean ASCII when needed. |
 | 📦 **Zero Dependencies** | Pure Python. No external libraries. No complexity. |
 
@@ -181,7 +181,7 @@ python tasker.py backlog remove 2
 
 TaskTracker isn't just another weekend project. It's **production-ready**:
 
-- ✅ **107 automated tests** covering every feature
+- ✅ **250 automated tests** covering every feature
 - ✅ **Cross-platform compatibility** (Windows/macOS/Linux)
 - ✅ **Unicode safety** with graceful ASCII fallbacks
 - ✅ **Input validation** prevents crashes and data corruption
@@ -191,7 +191,7 @@ TaskTracker isn't just another weekend project. It's **production-ready**:
 ```bash
 # Run the full test suite
 python -m pytest
-# 107 tests pass in < 3 seconds
+# 250 tests pass in < 10 seconds
 ```
 
 ---
@@ -311,9 +311,9 @@ Every feature is tested. Every edge case is covered.
 - [x] Comprehensive test suite
 - [x] Input validation & error handling
 - [x] Unicode/Windows support
+- [x] **Task categories and tags** (`@work`, `@personal`, `#urgent`)
 
 ### 🎯 Next Up (v2.0)
-- [ ] **Task categories and tags** (`@work`, `@personal`, `#urgent`)
 - [ ] **Due dates for backlog items** with smart sorting
 - [ ] **Built-in Pomodoro timer** with progress tracking
 - [ ] **Time estimation vs actual** reporting
@@ -361,7 +361,7 @@ Found a bug? Have an idea? PRs and issues welcome!
 
 1. **Fork the repo**
 2. **Add tests** for your feature
-3. **Make sure all 107 tests pass**
+3. **Make sure all 250 tests pass**
 4. **Submit a PR** with a clear description
 
 **Questions?** Open an issue. **Want to help?** Check the roadmap above.

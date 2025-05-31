@@ -25,7 +25,7 @@ A living backlog of ideas, features, and future improvements for the TaskTracker
 
 ## 🧠 Future Features (Medium to Low Priority)
 
-* [ ] Task categorization by project/team
+* [x] Task categorization by project/team
 * [ ] Assign due dates to backlog tasks
 * [ ] Mark task as “no longer needed” (canceled/obsolete)
 * [ ] Sort backlog by filters (created date, due date, priority)
