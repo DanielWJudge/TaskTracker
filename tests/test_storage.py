@@ -1,8 +1,7 @@
 """Tests for storage operations."""
 
 import json
-from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from tasker import load, save, ensure_today, get_backlog
 import os
 

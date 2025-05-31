@@ -1,9 +1,8 @@
 """Command tests for tagged task functionality."""
 
-import pytest
 import json
 from unittest.mock import MagicMock, patch
-from tasker import cmd_add, cmd_status, cmd_backlog, create_task_data, handle_next_task_selection
+from tasker import cmd_add, cmd_status, cmd_backlog, create_task_data
 
 
 class TestTaggedTaskCommands:

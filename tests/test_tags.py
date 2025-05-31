@@ -1,6 +1,5 @@
 """Tests for task categories and tags functionality."""
 
-import pytest
 from tasker import parse_tags, format_task_with_tags, validate_tag_format
 
 
@@ -186,9 +185,8 @@ class TestValidateTagFormat:
             "project2024",
             "team-alpha"
         ]
-        
         for tag in valid_tags:
-            assert validate_tag_format(tag) == True, f"'{tag}' should be valid"
+            assert validate_tag_format(tag), f"'{tag}' should be valid"
     
     def test_invalid_tag_formats(self):
         """Test invalid tag formats."""
@@ -200,9 +198,8 @@ class TestValidateTagFormat:
             "tag#hash",   # # in tag
             "a" * 51,     # too long (assuming 50 char limit)
         ]
-        
         for tag in invalid_tags:
-            assert validate_tag_format(tag) == False, f"'{tag}' should be invalid"
+            assert not validate_tag_format(tag), f"'{tag}' should be invalid"
 
 
 class TestFormatTaskWithTags:
@@ -285,38 +282,26 @@ class TestTaskValidationWithTags:
     def test_validate_tagged_task_valid(self):
         """Test validation of valid tagged task."""
         from tasker import validate_task_name
-        
         task = "Deploy feature @work #urgent"
         is_valid, error_msg = validate_task_name(task)
-        
-        assert is_valid == True
+        assert is_valid
         assert error_msg == ""
     
     def test_validate_tagged_task_too_long(self):
         """Test validation when task + tags exceeds length limit."""
         from tasker import validate_task_name, Config
-        
-        # Create a task that's too long including tags
         base_task = "A" * (Config.MAX_TASK_LENGTH - 10)
         task = f"{base_task} @work #urgent #high_priority #important"
-        
         is_valid, error_msg = validate_task_name(task)
-        
-        assert is_valid == False
+        assert not is_valid
         assert "too long" in error_msg
     
     def test_validate_tagged_task_invalid_tag_format(self):
         """Test validation with invalid tag formats."""
         from tasker import validate_task_name
-        
-        # This test might pass validation at task level but fail at tag level
-        # We'll decide where to validate tag formats
         task = "Task @work space #urgent!"
         is_valid, error_msg = validate_task_name(task)
-        
-        # For now, basic task validation should pass
-        # Tag format validation might be separate
-        assert is_valid == True or "invalid tag format" in error_msg.lower()
+        assert is_valid or "invalid tag format" in error_msg.lower()
 
 
 # Test data for property-based testing (advanced)

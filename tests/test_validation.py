@@ -1,6 +1,5 @@
 """Tests for input validation functions."""
 
-import pytest
 from unittest.mock import patch
 from tasker import validate_task_name, safe_input, safe_int_input, Config
 

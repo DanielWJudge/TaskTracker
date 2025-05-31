@@ -17,11 +17,10 @@ import argparse
 import json
 import uuid
 import sys
-import locale
 import re
 from datetime import datetime
 from typing import Tuple, List
-from datetime import datetime, date
+from datetime import date
 from pathlib import Path
 import os
 
@@ -59,7 +58,7 @@ def setup_console_encoding():
                 sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
             if hasattr(sys.stderr, 'detach'):
                 sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
-        except:
+        except Exception:
             # If that fails, we'll rely on safe_print fallbacks
             pass
 
@@ -239,7 +238,7 @@ def load():
         return {}
     except json.JSONDecodeError as e:
         safe_print(f"{emoji('error')} Storage file corrupted: {e}")
-        safe_print(f"Creating backup and starting fresh...")
+        safe_print("Creating backup and starting fresh...")
         # Create backup of corrupted file
         backup_path = STORE.with_suffix('.json.backup')
         try:
@@ -506,14 +505,12 @@ def format_task_with_tags(task_text: str, categories: List[str], tags: List[str]
     
     # Highlight categories (@category)
     for category in categories:
-        pattern = f"@{category}"
         replacement = f"{CATEGORY_COLOR}@{category}{RESET_COLOR}"
         # Use word boundaries to avoid partial matches
         formatted_text = re.sub(f"@{re.escape(category)}\\b", replacement, formatted_text, flags=re.IGNORECASE)
     
     # Highlight tags (#tag)
     for tag in tags:
-        pattern = f"#{tag}"
         replacement = f"{TAG_COLOR}#{tag}{RESET_COLOR}"
         formatted_text = re.sub(f"#{re.escape(tag)}\\b", replacement, formatted_text, flags=re.IGNORECASE)
     
@@ -964,8 +961,10 @@ def cmd_status(args):
         formatted_cats = ", ".join(f"@{cat}" for cat in filter_categories)
         formatted_tags = ", ".join(f"#{tag}" for tag in filter_tags) # Format tags
         parts = []
-        if formatted_cats: parts.append(formatted_cats)
-        if formatted_tags: parts.append(formatted_tags)
+        if formatted_cats:
+            parts.append(formatted_cats)
+        if formatted_tags:
+            parts.append(formatted_tags)
         filter_info = f" (filtered by: {', '.join(parts)})"
     
     safe_print(f"\n=== TODAY: {today_str}{filter_info} ===")
@@ -1106,8 +1105,10 @@ def cmd_backlog(args):
             formatted_cats = ", ".join(f"@{cat}" for cat in filter_categories)
             formatted_tags = ", ".join(f"#{tag}" for tag in filter_tags) # Format tags
             parts = []
-            if formatted_cats: parts.append(formatted_cats)
-            if formatted_tags: parts.append(formatted_tags)
+            if formatted_cats:
+                parts.append(formatted_cats)
+            if formatted_tags:
+                parts.append(formatted_tags)
             title = f"Backlog (filtered by: {', '.join(parts)})"
         
         if not filtered_backlog and (filter_categories or filter_tags): # Check both

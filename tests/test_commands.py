@@ -1,8 +1,6 @@
 """Tests for CLI command functions."""
 
-import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime
 import json
 
 import tasker
@@ -187,7 +185,7 @@ class TestCmdDone:
         args = MagicMock()
         args.store = str(temp_storage) # Ensure cmd_done uses temp_storage
         
-        with patch('tasker.save', return_value=False) as mock_save, \
+        with patch('tasker.save', return_value=False), \
              patch('tasker.handle_next_task_selection') as mock_handle_next, \
              patch('tasker.today_key', return_value='2025-05-30'):
             cmd_done(args)

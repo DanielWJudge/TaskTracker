@@ -851,4 +851,5 @@ def plain_mode(monkeypatch):
     monkeypatch.setattr("tasker.USE_PLAIN", True)
 
 # Helper to create a mock args object
-Args = lambda **kwargs: type("Args", (), kwargs)
+def Args(**kwargs):
+    return type("Args", (), kwargs)
