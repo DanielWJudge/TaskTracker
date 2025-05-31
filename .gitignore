@@ -3,3 +3,4 @@ __pycache__/
 storage.json
 test_storage.json
 .vscode/
+.coverage
