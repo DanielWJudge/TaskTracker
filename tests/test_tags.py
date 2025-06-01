@@ -1,6 +1,13 @@
 """Tests for task categories and tags functionality."""
 
-from momentum import parse_tags, format_task_with_tags, validate_tag_format
+from momentum.momentum import (
+    parse_tags,
+    format_task_with_tags,
+    validate_tag_format,
+    create_task_data,
+    validate_task_name,
+    Config,
+)
 
 
 class TestParseTagsBasic:
@@ -246,8 +253,6 @@ class TestTagIntegration:
 
     def test_create_tagged_task_data(self):
         """Test creating task data structure with tags."""
-        from momentum import create_task_data
-
         task_text = "Fix bug @work #urgent"
         task_data = create_task_data(task_text)
 
@@ -265,8 +270,6 @@ class TestTagIntegration:
 
     def test_create_untagged_task_data(self):
         """Test creating task data for untagged task (backward compatibility)."""
-        from momentum import create_task_data
-
         task_text = "Simple task"
         task_data = create_task_data(task_text)
 
@@ -281,8 +284,6 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_valid(self):
         """Test validation of valid tagged task."""
-        from momentum import validate_task_name
-
         task = "Deploy feature @work #urgent"
         is_valid, error_msg = validate_task_name(task)
         assert is_valid
@@ -290,8 +291,6 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_too_long(self):
         """Test validation when task + tags exceeds length limit."""
-        from momentum import validate_task_name, Config
-
         base_task = "A" * (Config.MAX_TASK_LENGTH - 10)
         task = f"{base_task} @work #urgent #high_priority #important"
         is_valid, error_msg = validate_task_name(task)
@@ -300,8 +299,6 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_invalid_tag_format(self):
         """Test validation with invalid tag formats."""
-        from momentum import validate_task_name
-
         task = "Task @work space #urgent!"
         is_valid, error_msg = validate_task_name(task)
         assert is_valid or "invalid tag format" in error_msg.lower()

@@ -13,7 +13,9 @@ def temp_project_dir():
     """Create a temporary directory with momentum.py for testing."""
     temp_dir = tempfile.mkdtemp()
     temp_path = Path(temp_dir)
-    original_momentum = Path(__file__).parent.parent / "momentum.py"
+    original_momentum = (
+        Path(__file__).parent.parent / "src" / "momentum" / "momentum.py"
+    )
     temp_momentum = temp_path / "momentum.py"
     shutil.copy2(original_momentum, temp_momentum)
     temp_storage = temp_path / "test_storage.json"

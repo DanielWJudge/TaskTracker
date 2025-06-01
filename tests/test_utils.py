@@ -3,8 +3,8 @@
 from unittest.mock import patch
 from datetime import datetime
 
-import momentum
-from momentum import (
+from momentum import momentum
+from momentum.momentum import (
     format_backlog_timestamp,
     print_backlog_list,
     style,
@@ -310,7 +310,7 @@ class TestEmojiFunction:
 class TestTodayKey:
     """Test the today_key function."""
 
-    @patch("momentum.date")
+    @patch("momentum.momentum.date")
     def test_today_key_format(self, mock_date):
         """Test today_key returns correct format."""
         mock_date.today.return_value.strftime.return_value = "2025-05-30"

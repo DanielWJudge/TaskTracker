@@ -4,9 +4,9 @@ from unittest.mock import patch, MagicMock
 import json
 import sys
 import importlib
+from momentum import momentum
 
-import momentum
-from momentum import (
+from momentum.momentum import (
     cmd_add,
     cmd_done,
     cmd_status,
@@ -29,7 +29,9 @@ class TestCmdAdd:
         args.task = "Test task"
         args.store = str(temp_storage)  # Ensure cmd_add uses temp_storage
 
-        with patch("momentum.STORE", temp_storage):  # Patch STORE for momentum.load()
+        with patch(
+            "momentum.momentum.STORE", temp_storage
+        ):  # Patch STORE for momentum.load()
             cmd_add(args)
 
             # Check output
@@ -67,8 +69,8 @@ class TestCmdAdd:
         args = MagicMock()
         args.task = "New task"
         args.store = str(temp_storage)
-        with patch("momentum.safe_input", return_value="n"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="n"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_add(args)
 
@@ -79,7 +81,7 @@ class TestCmdAdd:
         updated_data = momentum.load()
         assert len(updated_data["backlog"]) == 0
 
-    @patch("momentum.save", return_value=True)
+    @patch("momentum.momentum.save", return_value=True)
     def test_add_task_when_active_task_exists_accept_backlog(
         self, mock_save, temp_storage, plain_mode, capsys
     ):
@@ -102,8 +104,8 @@ class TestCmdAdd:
         args = MagicMock()
         args.task = "New task"
         args.store = str(temp_storage)
-        with patch("momentum.safe_input", return_value="y"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="y"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_add(args)
 
@@ -152,7 +154,7 @@ class TestCmdDone:
         captured = capsys.readouterr()
         assert "No active task to complete" in captured.out
 
-    @patch("momentum.handle_next_task_selection")
+    @patch("momentum.momentum.handle_next_task_selection")
     def test_done_with_active_task(
         self, mock_handle_next, temp_storage, plain_mode, mock_datetime, capsys
     ):
@@ -167,8 +169,8 @@ class TestCmdDone:
         captured_out = ""
         today_data_after_cmd = None
 
-        with patch("momentum.today_key", return_value="2025-05-30"), patch(
-            "momentum.STORE", temp_storage
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"), patch(
+            "momentum.momentum.STORE", temp_storage
         ):  # Patch global STORE for the test's load and ensure_today
             cmd_done(args)
 
@@ -203,9 +205,11 @@ class TestCmdDone:
         args = MagicMock()
         args.store = str(temp_storage)  # Ensure cmd_done uses temp_storage
 
-        with patch("momentum.save", return_value=False), patch(
-            "momentum.handle_next_task_selection"
-        ) as mock_handle_next, patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.save", return_value=False), patch(
+            "momentum.momentum.handle_next_task_selection"
+        ) as mock_handle_next, patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
+        ):
             cmd_done(args)
 
             # With the updated code, cmd_done returns early if save fails
@@ -221,7 +225,7 @@ class TestCompleteCurrentTask:
         today = {"todo": "Test task", "done": []}
 
         with patch(
-            "momentum.today_key", return_value="2025-05-30"
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # Not strictly necessary here but good for consistency
             complete_current_task(today)
 
@@ -254,10 +258,10 @@ class TestHandleNextTaskSelection:
 
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value="2"), patch(
-            "momentum.save", return_value=True
-        ), patch("momentum.cmd_status"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="2"), patch(
+            "momentum.momentum.save", return_value=True
+        ), patch("momentum.momentum.cmd_status"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
 
             handle_next_task_selection(data, today)
@@ -269,7 +273,14 @@ class TestHandleNextTaskSelection:
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
         active_task = today["todo"]
-        assert active_task["task"] == "Second task"
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert active_task["task"] == "Second task"
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
         assert len(data["backlog"]) == 1  # one item removed
         assert data["backlog"][0]["task"] == "First task"  # correct item remained
 
@@ -281,8 +292,8 @@ class TestHandleNextTaskSelection:
         }
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value="5"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="5"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # invalid index
             handle_next_task_selection(data, today)
 
@@ -299,11 +310,11 @@ class TestHandleNextTaskSelection:
         today = data["2025-05-30"]
 
         with patch(
-            "momentum.safe_input", side_effect=["n", "New interactive task"]
-        ), patch("momentum.save", return_value=True), patch(
-            "momentum.cmd_status"
+            "momentum.momentum.safe_input", side_effect=["n", "New interactive task"]
+        ), patch("momentum.momentum.save", return_value=True), patch(
+            "momentum.momentum.cmd_status"
         ), patch(
-            "momentum.today_key", return_value="2025-05-30"
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
 
             handle_next_task_selection(data, today)
@@ -315,15 +326,22 @@ class TestHandleNextTaskSelection:
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
         active_task = today["todo"]
-        assert active_task["task"] == "New interactive task"
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert active_task["task"] == "New interactive task"
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
 
     def test_skip_adding_task(self, plain_mode):
         """Test skipping task addition (empty input)."""
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value=""), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value=""), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # User presses Enter
             handle_next_task_selection(data, today)
 
@@ -335,8 +353,8 @@ class TestHandleNextTaskSelection:
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value=None), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value=None), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # safe_input returns None on cancel
             handle_next_task_selection(data, today)
 
@@ -353,7 +371,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -371,7 +389,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -413,7 +431,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -434,8 +452,8 @@ class TestCmdNewday:
         today_key_val = "2025-05-30"
         loaded_data_after_cmd = None
 
-        with patch("momentum.today_key", return_value=today_key_val), patch(
-            "momentum.STORE", temp_storage
+        with patch("momentum.momentum.today_key", return_value=today_key_val), patch(
+            "momentum.momentum.STORE", temp_storage
         ):  # Patch STORE for momentum.load()
             cmd_newday(args)
             loaded_data_after_cmd = momentum.load()  # Load within patch context
@@ -453,8 +471,8 @@ class TestCmdNewday:
         args = MagicMock()
         args.store = str(temp_storage)  # Ensure cmd_newday uses temp_storage
 
-        with patch("momentum.save", return_value=False), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.save", return_value=False), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_newday(args)
 
@@ -476,7 +494,9 @@ class TestCmdBacklog:
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
         backlog_after_cmd = None
-        with patch("momentum.STORE", temp_storage):  # Patch STORE for momentum.load()
+        with patch(
+            "momentum.momentum.STORE", temp_storage
+        ):  # Patch STORE for momentum.load()
             cmd_backlog(args)
             # Check data was saved - now expecting structured format
             data = momentum.load()  # Loads from temp_storage
@@ -559,7 +579,7 @@ class TestCmdBacklog:
         args.filter = None  # Ensure filter is None for status call
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -576,7 +596,7 @@ class TestCmdBacklog:
         args.filter = None
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -599,7 +619,7 @@ class TestCmdBacklog:
         args.filter = None
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -622,7 +642,7 @@ class TestCmdBacklog:
         args.index = 1  # remove first item (1-based)
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.save", return_value=True):
+        with patch("momentum.momentum.save", return_value=True):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -805,16 +825,14 @@ class TestCmdCancel:
         args = MagicMock()
         args.store = str(temp_storage)
 
-        with patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
-        ):
-            reloaded_momentum_module.cmd_cancel(args)
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+            momentum.cmd_cancel(args)
 
-        with patch(f"{reloaded_momentum_module.__name__}.STORE", temp_storage), patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.STORE", temp_storage), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
-            updated_data = reloaded_momentum_module.load()
-            today = reloaded_momentum_module.ensure_today(updated_data)
+            updated_data = momentum.load()
+            today = momentum.ensure_today(updated_data)
 
         captured = capsys.readouterr()
         assert "Cancelled:" in captured.out
@@ -846,20 +864,13 @@ class TestCmdCancel:
     def test_cancel_no_active_task(self, temp_storage, plain_mode, capsys):
         """Test cancelling when there is no active task."""
 
-        reloaded_momentum_module = momentum
-        if "momentum" in sys.modules:
-            importlib.reload(momentum)
-            reloaded_momentum_module = sys.modules["momentum"]
-
         data = {"2025-05-30": {"todo": None, "done": []}, "backlog": []}
         temp_storage.write_text(json.dumps(data), encoding="utf-8")
         args = MagicMock()
         args.store = str(temp_storage)
 
-        with patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
-        ), patch(f"{reloaded_momentum_module.__name__}.STORE", temp_storage):
-            reloaded_momentum_module.cmd_cancel(args)
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+            momentum.cmd_cancel(args)
 
         captured = capsys.readouterr()
         assert "No active task to cancel" in captured.out
@@ -888,7 +899,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "cancelled"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: cancelled" in captured.out
@@ -915,7 +926,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "archived"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: archived" in captured.out
@@ -942,7 +953,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "all"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: all" in captured.out
@@ -964,7 +975,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "cancelled"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "No matching tasks in history." in captured.out

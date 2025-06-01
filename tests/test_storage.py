@@ -2,7 +2,7 @@
 
 import json
 from unittest.mock import patch
-from momentum import load, save, ensure_today, get_backlog
+from momentum.momentum import load, save, ensure_today, get_backlog
 import os
 
 
@@ -41,7 +41,7 @@ class TestLoad:
         assert backup_file.exists()
         assert backup_file.read_text() == "invalid json content"
 
-    @patch("momentum.STORE")
+    @patch("momentum.momentum.STORE")
     def test_load_permission_error(self, mock_store, capsys):
         """Test loading with permission error."""
         mock_store.exists.return_value = True
@@ -66,7 +66,7 @@ class TestSave:
         saved_data = json.loads(temp_storage.read_text(encoding="utf-8"))
         assert saved_data == sample_data
 
-    @patch("momentum.STORE")
+    @patch("momentum.momentum.STORE")
     def test_save_permission_error(self, mock_store, capsys):
         """Test save with permission error."""
         mock_store.write_text.side_effect = PermissionError("Access denied")

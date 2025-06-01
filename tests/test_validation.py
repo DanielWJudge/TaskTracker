@@ -1,7 +1,7 @@
 """Tests for input validation functions."""
 
 from unittest.mock import patch
-from momentum import validate_task_name, safe_input, safe_int_input, Config
+from momentum.momentum import validate_task_name, safe_input, safe_int_input, Config
 
 
 class TestValidateTaskName:
