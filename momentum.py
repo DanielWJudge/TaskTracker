@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-TaskTracker - A minimal, one-task-at-a-time CLI tracker.
+Momentum - A minimal, one-task-at-a-time CLI tracker.
 
 A command-line task management tool that enforces focus by allowing only one
 active task at a time. Features a persistent backlog, interactive prompts,
 and clean status displays with optional emoji/color output.
 
 Usage:
-    python tasker.py add "Task description"
-    python tasker.py done
-    python tasker.py backlog add "Future task"
-    python tasker.py status
+    python momentum.py add "Task description"
+    python momentum.py done
+    python momentum.py backlog add "Future task"
+    python momentum.py status
 """
 
 import argparse
@@ -44,7 +44,7 @@ STORE: Path = Path("storage.json")
 
 # ===== Configuration =====
 class Config:
-    """Configuration constants for TaskTracker."""
+    """Configuration constants for Momentum."""
 
     MAX_TASK_LENGTH = 500
     STORAGE_ENCODING = "utf-8"
@@ -321,7 +321,7 @@ def save(data):
 
 def today_key():
     """Return today's date as a string in YYYY-MM-DD format."""
-    env_date = os.environ.get("TASKER_TODAY_KEY")
+    env_date = os.environ.get("MOMENTUM_TODAY_KEY")
     if env_date:
         return env_date
     return str(date.today())

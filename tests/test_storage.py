@@ -2,7 +2,7 @@
 
 import json
 from unittest.mock import patch
-from tasker import load, save, ensure_today, get_backlog
+from momentum import load, save, ensure_today, get_backlog
 import os
 
 
@@ -41,7 +41,7 @@ class TestLoad:
         assert backup_file.exists()
         assert backup_file.read_text() == "invalid json content"
 
-    @patch("tasker.STORE")
+    @patch("momentum.STORE")
     def test_load_permission_error(self, mock_store, capsys):
         """Test loading with permission error."""
         mock_store.exists.return_value = True
@@ -66,7 +66,7 @@ class TestSave:
         saved_data = json.loads(temp_storage.read_text(encoding="utf-8"))
         assert saved_data == sample_data
 
-    @patch("tasker.STORE")
+    @patch("momentum.STORE")
     def test_save_permission_error(self, mock_store, capsys):
         """Test save with permission error."""
         mock_store.write_text.side_effect = PermissionError("Access denied")
@@ -94,8 +94,8 @@ class TestDataStructure:
 
     def test_ensure_today_new_data(self, mock_datetime):
         """Test ensure_today with empty data."""
-        old_env = os.environ.get("TASKER_TODAY_KEY")
-        os.environ["TASKER_TODAY_KEY"] = "2025-05-30"
+        old_env = os.environ.get("MOMENTUM_TODAY_KEY")
+        os.environ["MOMENTUM_TODAY_KEY"] = "2025-05-30"
         try:
             data = {}
             today = ensure_today(data)
@@ -106,14 +106,14 @@ class TestDataStructure:
             assert today["done"] == []
         finally:
             if old_env is not None:
-                os.environ["TASKER_TODAY_KEY"] = old_env
+                os.environ["MOMENTUM_TODAY_KEY"] = old_env
             else:
-                del os.environ["TASKER_TODAY_KEY"]
+                del os.environ["MOMENTUM_TODAY_KEY"]
 
     def test_ensure_today_existing_data(self, sample_data):
         """Test ensure_today with existing data."""
-        old_env = os.environ.get("TASKER_TODAY_KEY")
-        os.environ["TASKER_TODAY_KEY"] = "2025-05-30"
+        old_env = os.environ.get("MOMENTUM_TODAY_KEY")
+        os.environ["MOMENTUM_TODAY_KEY"] = "2025-05-30"
         try:
             original_backlog = sample_data["backlog"].copy()
             today = ensure_today(sample_data)
@@ -122,9 +122,9 @@ class TestDataStructure:
             assert today["todo"] == "Current active task"
         finally:
             if old_env is not None:
-                os.environ["TASKER_TODAY_KEY"] = old_env
+                os.environ["MOMENTUM_TODAY_KEY"] = old_env
             else:
-                del os.environ["TASKER_TODAY_KEY"]
+                del os.environ["MOMENTUM_TODAY_KEY"]
 
     def test_get_backlog_new_data(self):
         """Test get_backlog creates backlog if missing."""

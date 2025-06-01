@@ -3,8 +3,8 @@
 from unittest.mock import patch
 from datetime import datetime
 
-import tasker
-from tasker import (
+import momentum
+from momentum import (
     format_backlog_timestamp,
     print_backlog_list,
     style,
@@ -168,48 +168,48 @@ class TestStyleFunction:
 
     def test_style_with_plain_mode_disabled(self):
         """Test style function when plain mode is disabled."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = style("\033[92m")  # green color code
             assert result == "\033[92m"
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_style_with_plain_mode_enabled(self):
         """Test style function when plain mode is enabled."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = True
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = True
 
         try:
             result = style("\033[92m")  # green color code
             assert result == ""  # should return empty string
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_style_with_empty_string(self):
         """Test style function with empty string."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = style("")
             assert result == ""
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_style_with_none(self):
         """Test style function with None input."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = style(None)
             # The updated style function handles None gracefully and returns empty string
             assert result == ""
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
 
 class TestEmojiFunction:
@@ -217,8 +217,8 @@ class TestEmojiFunction:
 
     def test_emoji_with_plain_mode_disabled(self):
         """Test emoji function when plain mode is disabled."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = emoji("added")
@@ -230,12 +230,12 @@ class TestEmojiFunction:
             result = emoji("error")
             assert result == "❌"
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_emoji_with_plain_mode_enabled(self):
         """Test emoji function when plain mode is enabled."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = True
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = True
 
         try:
             result = emoji("added")
@@ -247,45 +247,45 @@ class TestEmojiFunction:
             result = emoji("error")
             assert result == ""
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_emoji_with_unknown_key(self):
         """Test emoji function with unknown key."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = emoji("unknown_key")
             assert result == ""  # should return empty string for unknown keys
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_emoji_with_empty_key(self):
         """Test emoji function with empty key."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = emoji("")
             assert result == ""
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_emoji_with_none_key(self):
         """Test emoji function with None key."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             result = emoji(None)
             assert result == ""  # .get(None, "") should return ""
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
     def test_all_emoji_keys(self):
         """Test all defined emoji keys."""
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             expected_emojis = {
@@ -304,13 +304,13 @@ class TestEmojiFunction:
                     result == expected_emoji
                 ), f"Emoji for '{key}' should be '{expected_emoji}', got '{result}'"
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
 
 class TestTodayKey:
     """Test the today_key function."""
 
-    @patch("tasker.date")
+    @patch("momentum.date")
     def test_today_key_format(self, mock_date):
         """Test today_key returns correct format."""
         mock_date.today.return_value.strftime.return_value = "2025-05-30"
@@ -428,21 +428,21 @@ class TestDisplayIntegration:
         backlog = [{"task": "Test task", "ts": "2025-05-30T14:30:00"}]
 
         # Test with plain mode disabled
-        original_plain = tasker.USE_PLAIN
-        tasker.USE_PLAIN = False
+        original_plain = momentum.USE_PLAIN
+        momentum.USE_PLAIN = False
 
         try:
             print_backlog_list(backlog)
             captured = capsys.readouterr()
             assert "📋" in captured.out  # backlog_list emoji
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain
 
         # Test with plain mode enabled
-        tasker.USE_PLAIN = True
+        momentum.USE_PLAIN = True
         try:
             print_backlog_list(backlog)
             captured = capsys.readouterr()
             assert "📋" not in captured.out  # no emoji in plain mode
         finally:
-            tasker.USE_PLAIN = original_plain
+            momentum.USE_PLAIN = original_plain

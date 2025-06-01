@@ -2,7 +2,7 @@
 
 import json
 from unittest.mock import MagicMock, patch
-from tasker import cmd_add, cmd_status, cmd_backlog, create_task_data
+from momentum import cmd_add, cmd_status, cmd_backlog, create_task_data
 
 
 class TestTaggedTaskCommands:
@@ -13,7 +13,7 @@ class TestTaggedTaskCommands:
         args = MagicMock()
         args.task = "Deploy feature @work #urgent"
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_add(args)
 
         captured = capsys.readouterr()
@@ -51,8 +51,8 @@ class TestTaggedTaskCommands:
         args = MagicMock()
         args.task = "New tagged task @work #urgent"
         args.store = str(temp_storage)
-        with patch("tasker.safe_input", return_value="y"), patch(
-            "tasker.today_key", return_value="2025-05-30"
+        with patch("momentum.safe_input", return_value="y"), patch(
+            "momentum.today_key", return_value="2025-05-30"
         ):
             cmd_add(args)
 
@@ -98,7 +98,7 @@ class TestTaggedTaskCommands:
 
         args = MagicMock()
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -126,7 +126,7 @@ class TestTaggedTaskCommands:
 
         args = MagicMock()
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -139,7 +139,7 @@ class TestTaggedTaskCommands:
         args.subcmd = "add"
         args.task = "Review code @team #urgent"
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -180,7 +180,7 @@ class TestTaggedTaskCommands:
         args = MagicMock()
         args.subcmd = "list"
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -210,8 +210,8 @@ class TestTaggedTaskCommands:
         args.subcmd = "pull"
         args.index = 1
         args.store = str(temp_storage)
-        with patch("tasker.cmd_status"), patch(
-            "tasker.today_key", return_value="2025-05-30"
+        with patch("momentum.cmd_status"), patch(
+            "momentum.today_key", return_value="2025-05-30"
         ):
             cmd_backlog(args)
 
@@ -258,7 +258,7 @@ class TestTaggedTaskCommands:
         args.subcmd = "remove"
         args.index = 2  # Remove second item
         args.store = str(temp_storage)
-        with patch("tasker.today_key", return_value="2025-05-30"):
+        with patch("momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()

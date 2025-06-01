@@ -1,7 +1,7 @@
-# TaskTracker
+# Momentum
 
-[![CI](https://github.com/DanielWJudge/TaskTracker/actions/workflows/test.yml/badge.svg)](https://github.com/DanielWJudge/TaskTracker/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/DanielWJudge/TaskTracker/branch/main/graph/badge.svg)](https://codecov.io/gh/DanielWJudge/TaskTracker)
+[![CI](https://github.com/DanielWJudge/Momentum/actions/workflows/test.yml/badge.svg)](https://github.com/DanielWJudge/Momentum/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/DanielWJudge/Momentum/branch/main/graph/badge.svg)](https://codecov.io/gh/DanielWJudge/Momentum)
 
 _A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and ships faster._
 
@@ -11,11 +11,11 @@ _A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and
 
 ---
 
-## 🚀 Why TaskTracker?
+## 🚀 Why Momentum?
 
 **Stop juggling endless task lists. Start shipping.**
 
-Most productivity apps encourage **endless lists** that overwhelm your brain. TaskTracker enforces **laser focus**:
+Most productivity apps encourage **endless lists** that overwhelm your brain. Momentum enforces **laser focus**:
 
 1. **One active task.** Period.
 2. Complete it, mark it **done** ✅
@@ -31,7 +31,7 @@ Most productivity apps encourage **endless lists** that overwhelm your brain. Ta
 | Feature | Why It Matters |
 |---------|---------------|
 | 🎯 **Single Active Task** | Your brain works better with one focus. No context switching. |
-| 🔄 **Smart Completion Flow** | When you finish a task, TaskTracker asks: "What's next?" |
+| 🔄 **Smart Completion Flow** | When you finish a task, Momentum asks: "What's next?" |
 | 📋 **Persistent Backlog** | Future tasks survive across days. Never lose track of what matters. |
 | ⚡ **Instant Startup** | No databases, no cloud sync delays. Pure speed. |
 | 🌍 **Universal Compatibility** | Windows, macOS, Linux. Command Prompt, PowerShell, Terminal. |
@@ -49,8 +49,8 @@ You can organize your tasks using categories (prefixed with `@`) and tags (prefi
 - **Tags**: Use `#tag` to mark priority, status, or any other attribute (e.g., `#urgent`, `#low`).
 
 **Examples:**
-- `python tasker.py add "Finish report @work #urgent"`
-- `python tasker.py backlog add "Buy groceries @personal #low"`
+- `python momentum.py add "Finish report @work #urgent"`
+- `python momentum.py backlog add "Buy groceries @personal #low"`
 
 ---
 
@@ -59,11 +59,11 @@ You can organize your tasks using categories (prefixed with `@`) and tags (prefi
 You can filter your active tasks and backlog by category and/or tag:
 
 - **By category:**  
-  `python tasker.py status --filter @work`
+  `python momentum.py status --filter @work`
 - **By tag:**  
-  `python tasker.py backlog list --filter "#urgent"`
+  `python momentum.py backlog list --filter "#urgent"`
 - **Multiple filters:**  
-  `python tasker.py status --filter "@work,#urgent"`
+  `python momentum.py status --filter "@work,#urgent"`
 - **Case-insensitive:**  
   `--filter "@WORK,#URGENT"` works the same as lowercase.
 
@@ -72,10 +72,10 @@ If your filter includes `#`, enclose it in quotes to avoid shell comment parsing
 
 **Examples:**
 ```sh
-python tasker.py status --filter @work
-python tasker.py backlog list --filter "#urgent"
-python tasker.py status --filter "@work,@personal"
-python tasker.py status
+python momentum.py status --filter @work
+python momentum.py backlog list --filter "#urgent"
+python momentum.py status --filter "@work,@personal"
+python momentum.py status
 ```
 
 | Command Example                                 | Description                        |
@@ -108,47 +108,47 @@ pytest
 
 ```bash
 # Clone and enter
-git clone https://github.com/yourusername/TaskTracker.git
-cd TaskTracker
+git clone https://github.com/yourusername/Momentum.git
+cd Momentum
 
 # Optional: Virtual environment (recommended)
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Start fresh
-python tasker.py newday
+python momentum.py newday
 
 # Add your most important task
-python tasker.py add "Ship the new feature"
+python momentum.py add "Ship the new feature"
 
 # Focus. Work. Complete.
-python tasker.py done
-# → TaskTracker asks: What's next?
+python momentum.py done
+# → Momentum asks: What's next?
 # → [1] Pull from backlog | [n] New task | [Enter] Take a break
 
 # Build your backlog for tomorrow
-python tasker.py backlog add "Refactor authentication"
-python tasker.py backlog add "Write deployment docs"
-python tasker.py backlog add "Review team PRs"
+python momentum.py backlog add "Refactor authentication"
+python momentum.py backlog add "Write deployment docs"
+python momentum.py backlog add "Review team PRs"
 
 # See everything at a glance
-python tasker.py status
+python momentum.py status
 ```
 
 ### Pro Tips
 
 ```bash
 # Work offline, sync never
-python tasker.py --plain status   # Clean output for scripts/CI
+python momentum.py --plain status   # Clean output for scripts/CI
 
 # Custom storage location
-python tasker.py --store ~/work/tasks.json add "Client work"
+python momentum.py --store ~/work/tasks.json add "Client work"
 
 # Pull specific backlog item
-python tasker.py backlog pull --index 3
+python momentum.py backlog pull --index 3
 
 # Remove outdated backlog items
-python tasker.py backlog remove 2
+python momentum.py backlog remove 2
 ```
 
 ---
@@ -182,7 +182,7 @@ python tasker.py backlog remove 2
 
 ## 🛡️ Battle-Tested Quality
 
-TaskTracker isn't just another weekend project. It's **production-ready**:
+Momentum isn't just another weekend project. It's **production-ready**:
 
 - ✅ **250 automated tests** covering every feature
 - ✅ **Cross-platform compatibility** (Windows/macOS/Linux)
@@ -239,19 +239,19 @@ Write deployment docs
 
 ### Core Workflow
 ```bash
-python tasker.py newday                    # Start fresh day
-python tasker.py add "Most important task" # Set your focus
-python tasker.py done                      # Complete and choose next
-python tasker.py status                    # See everything
+python momentum.py newday                    # Start fresh day
+python momentum.py add "Most important task" # Set your focus
+python momentum.py done                      # Complete and choose next
+python momentum.py status                    # See everything
 ```
 
 ### Backlog Management
 ```bash
-python tasker.py backlog add "Future task"    # Add to backlog
-python tasker.py backlog list                 # View all backlog items
-python tasker.py backlog pull                 # Interactive: choose from backlog
-python tasker.py backlog pull --index 2       # Pull specific item
-python tasker.py backlog remove 3             # Remove by index
+python momentum.py backlog add "Future task"    # Add to backlog
+python momentum.py backlog list                 # View all backlog items
+python momentum.py backlog pull                 # Interactive: choose from backlog
+python momentum.py backlog pull --index 2       # Pull specific item
+python momentum.py backlog remove 3             # Remove by index
 ```
 
 ### Options
@@ -264,12 +264,12 @@ python tasker.py backlog remove 3             # Remove by index
 
 ## 🔧 Development
 
-TaskTracker welcomes contributions! The codebase is clean, tested, and documented.
+Momentum welcomes contributions! The codebase is clean, tested, and documented.
 
 ```bash
 # Set up development environment
-git clone https://github.com/yourusername/TaskTracker.git
-cd TaskTracker
+git clone https://github.com/yourusername/Momentum.git
+cd Momentum
 python -m venv .venv
 source .venv/bin/activate
 
@@ -279,10 +279,10 @@ pip install -r requirements-dev.txt
 # Run tests
 pytest                    # All tests
 pytest -v                 # Verbose output
-pytest --cov=tasker       # With coverage report
+pytest --cov=momentum       # With coverage report
 
 # Code structure
-tasker.py              # Main application (550 lines, well-documented)
+momentum.py              # Main application (550 lines, well-documented)
 tests/
 ├── test_commands.py   # Command function tests (29 tests)
 ├── test_integration.py # End-to-end workflow tests (19 tests)
@@ -335,7 +335,7 @@ Every feature is tested. Every edge case is covered.
 
 > "The secret to getting ahead is getting started. The secret to getting started is breaking your complex overwhelming tasks into small manageable tasks, and then starting on the first one." - Mark Twain
 
-TaskTracker embodies this philosophy in code:
+Momentum embodies this philosophy in code:
 
 - **Simplicity over complexity** - One task, one focus
 - **Shipping over planning** - Less organizing, more doing  
@@ -354,7 +354,7 @@ MIT License - Use it, modify it, ship it.
 
 **Created by Daniel Judge** to fight productivity theater and ship real value.
 
-*"Most task apps make you feel busy. TaskTracker makes you productive."*
+*"Most task apps make you feel busy. Momentum makes you productive."*
 
 ---
 
@@ -373,6 +373,6 @@ Found a bug? Have an idea? PRs and issues welcome!
 
 ## ⭐ Star This Repo
 
-If TaskTracker helps you ship faster, **star this repo** to help others discover it!
+If Momentum helps you ship faster, **star this repo** to help others discover it!
 
-**[⭐ Star on GitHub](https://github.com/yourusername/TaskTracker)**
+**[⭐ Star on GitHub](https://github.com/yourusername/Momentum)**

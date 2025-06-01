@@ -10,21 +10,21 @@ import time
 
 @pytest.fixture
 def temp_project_dir():
-    """Create a temporary directory with tasker.py for testing."""
+    """Create a temporary directory with momentum.py for testing."""
     temp_dir = tempfile.mkdtemp()
     temp_path = Path(temp_dir)
-    original_tasker = Path(__file__).parent.parent / "tasker.py"
-    temp_tasker = temp_path / "tasker.py"
-    shutil.copy2(original_tasker, temp_tasker)
+    original_momentum = Path(__file__).parent.parent / "momentum.py"
+    temp_momentum = temp_path / "momentum.py"
+    shutil.copy2(original_momentum, temp_momentum)
     temp_storage = temp_path / "test_storage.json"
-    yield temp_path, temp_tasker, temp_storage
+    yield temp_path, temp_momentum, temp_storage
     shutil.rmtree(temp_dir)
 
 
-def run_cli(temp_tasker, temp_storage, command, stdin_input=None):
+def run_cli(temp_momentum, temp_storage, command, stdin_input=None):
     parts = [
         "python",
-        str(temp_tasker),
+        str(temp_momentum),
         "--plain",
         "--store",
         str(temp_storage),
@@ -33,7 +33,7 @@ def run_cli(temp_tasker, temp_storage, command, stdin_input=None):
         **subprocess.os.environ,
         "PYTHONIOENCODING": "utf-8",
         "PYTHONLEGACYWINDOWSSTDIO": "1",
-        "TASKER_TODAY_KEY": "2025-05-30",
+        "MOMENTUM_TODAY_KEY": "2025-05-30",
     }
     result = subprocess.run(
         parts, capture_output=True, text=True, input=stdin_input, timeout=10, env=env
@@ -50,54 +50,56 @@ def test_complete_workflow(temp_project_dir):
     4. Pull next @work task from backlog
     5. Verify personal tasks aren't affected
     """
-    temp_path, temp_tasker, temp_storage = temp_project_dir
+    temp_path, temp_momentum, temp_storage = temp_project_dir
 
     # 1. Add several @work and @personal tasks
-    result = run_cli(temp_tasker, temp_storage, 'add "Finish report @work #urgent"')
+    result = run_cli(temp_momentum, temp_storage, 'add "Finish report @work #urgent"')
     assert result.returncode == 0
-    result = run_cli(temp_tasker, temp_storage, 'backlog add "Plan meeting @work"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog add "Plan meeting @work"')
     assert result.returncode == 0
-    result = run_cli(temp_tasker, temp_storage, 'backlog add "Buy groceries @personal"')
+    result = run_cli(
+        temp_momentum, temp_storage, 'backlog add "Buy groceries @personal"'
+    )
     assert result.returncode == 0
-    result = run_cli(temp_tasker, temp_storage, 'backlog add "Call mom @personal"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog add "Call mom @personal"')
     assert result.returncode == 0
 
     # 2. Filter status by @work
-    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
+    result = run_cli(temp_momentum, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "Finish report @work #urgent" in result.stdout
     assert "Plan meeting @work" not in result.stdout  # Not active yet
     assert "Buy groceries @personal" not in result.stdout
 
     # 3. Complete work task
-    result = run_cli(temp_tasker, temp_storage, "done", stdin_input="\n")
+    result = run_cli(temp_momentum, temp_storage, "done", stdin_input="\n")
     assert result.returncode == 0
     # After completion, no active task, so status should show TBD
-    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
+    result = run_cli(temp_momentum, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "TBD" in result.stdout or "No active task matches filter" in result.stdout
 
     # 4. Pull next @work task from backlog
     # List backlog filtered by @work to get index
-    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
+    result = run_cli(temp_momentum, temp_storage, "backlog list --filter @work")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
     # Pull the first @work task
-    result = run_cli(temp_tasker, temp_storage, "backlog pull --index 1")
+    result = run_cli(temp_momentum, temp_storage, "backlog pull --index 1")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
     # Now status should show this as active
-    result = run_cli(temp_tasker, temp_storage, "status --filter @work")
+    result = run_cli(temp_momentum, temp_storage, "status --filter @work")
     assert result.returncode == 0
     assert "Plan meeting @work" in result.stdout
 
     # 5. Verify personal tasks aren't affected
-    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @personal")
+    result = run_cli(temp_momentum, temp_storage, "backlog list --filter @personal")
     assert result.returncode == 0
     assert "Buy groceries @personal" in result.stdout
     assert "Call mom @personal" in result.stdout
     # They should not appear in status filtered by @work
-    result = run_cli(temp_tasker, temp_storage, "status --filter @personal")
+    result = run_cli(temp_momentum, temp_storage, "status --filter @personal")
     assert result.returncode == 0
     assert "Plan meeting @work" not in result.stdout
     assert "Buy groceries @personal" not in result.stdout  # Not active
@@ -108,16 +110,16 @@ def test_cli_argument_variants(temp_project_dir):
     """
     CLI Argument Tests: All new command line options work correctly (filter quoting, multiple filters, etc).
     """
-    temp_path, temp_tasker, temp_storage = temp_project_dir
+    temp_path, temp_momentum, temp_storage = temp_project_dir
 
     # Add some tasks for filtering
-    run_cli(temp_tasker, temp_storage, 'add "Task one @work #urgent"')
-    run_cli(temp_tasker, temp_storage, 'backlog add "Task two @personal #low"')
-    run_cli(temp_tasker, temp_storage, 'backlog add "Task three @work #low"')
-    run_cli(temp_tasker, temp_storage, 'backlog add "Task four @personal #urgent"')
+    run_cli(temp_momentum, temp_storage, 'add "Task one @work #urgent"')
+    run_cli(temp_momentum, temp_storage, 'backlog add "Task two @personal #low"')
+    run_cli(temp_momentum, temp_storage, 'backlog add "Task three @work #low"')
+    run_cli(temp_momentum, temp_storage, 'backlog add "Task four @personal #urgent"')
 
     # 1. --filter with quoted tag
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "#urgent"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "#urgent"')
     assert result.returncode == 0
     assert (
         "Task one @work #urgent" in result.stdout
@@ -125,7 +127,7 @@ def test_cli_argument_variants(temp_project_dir):
     )
 
     # 2. --filter with quoted category
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work"')
     assert result.returncode == 0
     assert (
         "Task three @work #low" in result.stdout
@@ -133,18 +135,18 @@ def test_cli_argument_variants(temp_project_dir):
     )
 
     # 3. --filter with multiple filters (category and tag)
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work,#low"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work,#low"')
     assert result.returncode == 0
     assert "Task three @work #low" in result.stdout
     assert "Task one @work #urgent" not in result.stdout
 
     # 4. --filter with whitespace
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work, #low"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work, #low"')
     assert result.returncode == 0
     assert "Task three @work #low" in result.stdout
 
     # 5. --filter with only tag
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "#low"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "#low"')
     assert result.returncode == 0
     assert (
         "Task three @work #low" in result.stdout
@@ -152,7 +154,7 @@ def test_cli_argument_variants(temp_project_dir):
     )
 
     # 6. --filter with only category
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@personal"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@personal"')
     assert result.returncode == 0
     assert (
         "Task two @personal #low" in result.stdout
@@ -160,7 +162,7 @@ def test_cli_argument_variants(temp_project_dir):
     )
 
     # 7. --filter with invalid format (missing @ or #)
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "work"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "work"')
     assert result.returncode == 0
     assert (
         "Invalid filter item: 'work'. Must start with @ (category) or # (tag)."
@@ -168,18 +170,18 @@ def test_cli_argument_variants(temp_project_dir):
     )
 
     # 8. --filter with invalid characters
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work!"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work!"')
     assert result.returncode == 0
     assert "Invalid category format" in result.stdout
 
     # 9. --filter with empty string
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter ""')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter ""')
     assert result.returncode == 0
     assert "Backlog:" in result.stdout  # Should show all
 
     # 10. --filter with multiple categories
     result = run_cli(
-        temp_tasker, temp_storage, 'backlog list --filter "@work,@personal"'
+        temp_momentum, temp_storage, 'backlog list --filter "@work,@personal"'
     )
     assert result.returncode == 0
     assert "Task three @work #low" in result.stdout
@@ -191,14 +193,14 @@ def test_error_scenarios(temp_project_dir):
     """
     Error Scenario Tests: Invalid filters, non-existent categories, corrupted data, edge cases.
     """
-    temp_path, temp_tasker, temp_storage = temp_project_dir
+    temp_path, temp_momentum, temp_storage = temp_project_dir
 
     # Add some tasks for error scenarios
-    run_cli(temp_tasker, temp_storage, 'add "Task one @work #urgent"')
-    run_cli(temp_tasker, temp_storage, 'backlog add "Task two @personal #low"')
+    run_cli(temp_momentum, temp_storage, 'add "Task one @work #urgent"')
+    run_cli(temp_momentum, temp_storage, 'backlog add "Task two @personal #low"')
 
     # 1. Invalid filter format (missing @/#)
-    result = run_cli(temp_tasker, temp_storage, "backlog list --filter work")
+    result = run_cli(temp_momentum, temp_storage, "backlog list --filter work")
     assert result.returncode == 0
     assert (
         "Invalid filter item: 'work'. Must start with @ (category) or # (tag)."
@@ -206,12 +208,12 @@ def test_error_scenarios(temp_project_dir):
     )
 
     # 2. Invalid filter format (invalid characters)
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work!"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work!"')
     assert result.returncode == 0
     assert "Invalid category format" in result.stdout
 
     # 3. Filter by non-existent category
-    result = run_cli(temp_tasker, temp_storage, "backlog list --filter @nonexistent")
+    result = run_cli(temp_momentum, temp_storage, "backlog list --filter @nonexistent")
     assert result.returncode == 0
     assert (
         "No backlog items match the filter." in result.stdout
@@ -219,7 +221,7 @@ def test_error_scenarios(temp_project_dir):
     )
 
     # 4. Filter by non-existent tag
-    result = run_cli(temp_tasker, temp_storage, "backlog list --filter #doesnotexist")
+    result = run_cli(temp_momentum, temp_storage, "backlog list --filter #doesnotexist")
     assert result.returncode == 0
     assert (
         "No backlog items match the filter." in result.stdout
@@ -228,7 +230,7 @@ def test_error_scenarios(temp_project_dir):
 
     # 5. Corrupted data (invalid JSON in storage)
     temp_storage.write_text("not a json", encoding="utf-8")
-    result = run_cli(temp_tasker, temp_storage, "status")
+    result = run_cli(temp_momentum, temp_storage, "status")
     assert result.returncode == 0
     assert (
         "Storage file corrupted" in result.stdout
@@ -236,12 +238,12 @@ def test_error_scenarios(temp_project_dir):
     )
 
     # 6. Edge case: empty filter
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter ""')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter ""')
     assert result.returncode == 0
     assert "Backlog:" in result.stdout
 
     # 7. Edge case: filter with only commas
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter ",,,"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter ",,,"')
     assert result.returncode == 0
     assert "Backlog:" in result.stdout
 
@@ -250,7 +252,7 @@ def test_performance_large_backlog(temp_project_dir):
     """
     Performance Test: Large backlogs with many tags perform well.
     """
-    temp_path, temp_tasker, temp_storage = temp_project_dir
+    temp_path, temp_momentum, temp_storage = temp_project_dir
 
     # Prepare 1000 backlog tasks with various tags/categories
     backlog = []
@@ -270,7 +272,7 @@ def test_performance_large_backlog(temp_project_dir):
 
     # Time the filter operation
     start = time.time()
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "#urgent"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "#urgent"')
     elapsed = time.time() - start
     assert result.returncode == 0
     # Should find about half the tasks
@@ -280,7 +282,7 @@ def test_performance_large_backlog(temp_project_dir):
 
     # Time a category filter
     start = time.time()
-    result = run_cli(temp_tasker, temp_storage, 'backlog list --filter "@work"')
+    result = run_cli(temp_momentum, temp_storage, 'backlog list --filter "@work"')
     elapsed = time.time() - start
     assert result.returncode == 0
     assert "Task 0 @work #urgent" in result.stdout
