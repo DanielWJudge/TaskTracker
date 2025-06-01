@@ -2,6 +2,8 @@
 
 from unittest.mock import patch, MagicMock
 import json
+import sys
+import importlib
 
 import tasker
 from tasker import (
@@ -266,7 +268,8 @@ class TestHandleNextTaskSelection:
 
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
-        assert today["todo"]["task"] == "Second task"
+        active_task = today["todo"]
+        assert active_task["task"] == "Second task"
         assert len(data["backlog"]) == 1  # one item removed
         assert data["backlog"][0]["task"] == "First task"  # correct item remained
 
@@ -309,7 +312,8 @@ class TestHandleNextTaskSelection:
 
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
-        assert today["todo"]["task"] == "New interactive task"
+        active_task = today["todo"]
+        assert active_task["task"] == "New interactive task"
 
     def test_skip_adding_task(self, plain_mode):
         """Test skipping task addition (empty input)."""
@@ -654,3 +658,311 @@ class TestCmdBacklog:
         captured = capsys.readouterr()
         # The updated code properly shows "No backlog items to remove" for empty backlog
         assert "No backlog items to remove" in captured.out
+
+    def test_backlog_cancel_valid_index(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item by valid index."""
+        data = {
+            "backlog": [
+                {"task": "First task", "ts": "2025-05-30T10:00:00"},
+                {"task": "Second task", "ts": "2025-05-30T11:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 2  # cancel second item (1-based)
+        args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "Cancelled from backlog:" in captured.out
+        assert "Second task" in captured.out
+
+        # Reload and check that the backlog is updated and history contains the cancelled task
+        updated_data = tasker.load()
+        backlog = updated_data["backlog"]
+        history = updated_data.get("history", [])
+        assert len(backlog) == 1
+        assert backlog[0]["task"] == "First task"
+        assert any(
+            t.get("task") == "Second task" and t.get("state") == "cancelled"
+            for t in history
+        )
+        cancelled_task = next(t for t in history if t.get("task") == "Second task")
+        assert "cancellation_date" in cancelled_task
+
+    def test_backlog_cancel_invalid_index(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item with an invalid index."""
+        data = {
+            "backlog": [
+                {"task": "Only task", "ts": "2025-05-30T10:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 5  # invalid index
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "Invalid backlog index: 5" in captured.out
+        # Backlog should remain unchanged
+        updated_data = tasker.load()
+        assert len(updated_data["backlog"]) == 1
+        assert updated_data["backlog"][0]["task"] == "Only task"
+        assert "history" not in updated_data or not updated_data["history"]
+
+    def test_backlog_cancel_empty_backlog(self, temp_storage, plain_mode, capsys):
+        """Test cancelling from an empty backlog."""
+        data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 1
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "No backlog items to cancel" in captured.out
+        # Backlog and history should remain empty
+        updated_data = tasker.load()
+        assert updated_data["backlog"] == []
+        assert "history" not in updated_data or not updated_data["history"]
+
+    def test_backlog_cancel_non_dict_item(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item that is not a dict (legacy/invalid data)."""
+        data = {
+            "backlog": [
+                "Legacy string task",
+                {"task": "Valid task", "ts": "2025-05-30T10:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 1  # try to cancel the legacy string
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "unexpected format" in captured.out.lower()
+        # The legacy string should remain in backlog
+        updated_data = tasker.load()
+        assert updated_data["backlog"][0] == "Legacy string task"
+        # The valid task should still be present
+        assert updated_data["backlog"][1]["task"] == "Valid task"
+        # History should not contain the legacy string
+        assert "history" not in updated_data or not any(
+            t.get("task") == "Legacy string task" for t in updated_data["history"]
+        )
+
+
+class TestCmdCancel:
+    """Test the cmd_cancel command function."""
+
+    def test_cancel_active_task(self, temp_storage, plain_mode, capsys):
+        """Test cancelling an active task."""
+
+        reloaded_tasker_module = None
+        if "tasker" in sys.modules:
+            importlib.reload(tasker)
+            reloaded_tasker_module = sys.modules["tasker"]
+        else:
+            # Fallback or error if tasker not loaded as expected
+            reloaded_tasker_module = tasker
+
+        if reloaded_tasker_module is None:
+            assert False, "Tasker module did not load/reload correctly"
+
+        # Setup active task data
+        active_task_details = {
+            "task": "Task to cancel",
+            "categories": [],
+            "tags": [],
+            "ts": "2025-05-30T10:00:00",
+            "state": "active",
+        }
+        data_to_write = {
+            "2025-05-30": {"todo": active_task_details, "done": []},
+            "backlog": [],
+        }
+        temp_storage.write_text(json.dumps(data_to_write), encoding="utf-8")
+
+        args = MagicMock()
+        args.store = str(temp_storage)
+
+        with patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ):
+            reloaded_tasker_module.cmd_cancel(args)
+
+        with patch(f"{reloaded_tasker_module.__name__}.STORE", temp_storage), patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ):
+            updated_data = reloaded_tasker_module.load()
+            today = reloaded_tasker_module.ensure_today(updated_data)
+
+        captured = capsys.readouterr()
+        assert "Cancelled:" in captured.out
+
+        assert (
+            today["todo"] is None
+        ), f"Expected todo to be None, but was {today['todo']}"
+        assert (
+            len(today["done"]) == 1
+        ), f"Expected 1 item in done list, found {len(today['done'])}"
+
+        if len(today["done"]) == 1:
+            cancelled_outer_wrapper = today["done"][0]
+            assert "task" in cancelled_outer_wrapper, "'task' key missing in done item"
+            cancelled_task_data = cancelled_outer_wrapper["task"]
+            assert isinstance(
+                cancelled_task_data, dict
+            ), "Cancelled task data should be a dict"
+            assert (
+                cancelled_task_data.get("state") == "cancelled"
+            ), f"Cancelled task state is not 'cancelled', but {cancelled_task_data.get('state')}"
+            assert (
+                "cancelled_ts" in cancelled_task_data
+            ), "'cancelled_ts' missing in cancelled task"
+            assert (
+                cancelled_task_data.get("task") == "Task to cancel"
+            ), f"Cancelled task text is incorrect: {cancelled_task_data.get('task')}"
+
+    def test_cancel_no_active_task(self, temp_storage, plain_mode, capsys):
+        """Test cancelling when there is no active task."""
+
+        reloaded_tasker_module = tasker
+        if "tasker" in sys.modules:
+            importlib.reload(tasker)
+            reloaded_tasker_module = sys.modules["tasker"]
+
+        data = {"2025-05-30": {"todo": None, "done": []}, "backlog": []}
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.store = str(temp_storage)
+
+        with patch(
+            f"{reloaded_tasker_module.__name__}.today_key", return_value="2025-05-30"
+        ), patch(f"{reloaded_tasker_module.__name__}.STORE", temp_storage):
+            reloaded_tasker_module.cmd_cancel(args)
+
+        captured = capsys.readouterr()
+        assert "No active task to cancel" in captured.out
+
+
+class TestCmdHistory:
+    """Test the cmd_history command function."""
+
+    def test_history_cancelled(self, temp_storage, plain_mode, capsys):
+        """Test showing only cancelled tasks in history."""
+        data = {
+            "history": [
+                {
+                    "task": "Cancelled 1",
+                    "state": "cancelled",
+                    "cancellation_date": "2025-05-30T10:00:00",
+                },
+                {
+                    "task": "Archived 1",
+                    "state": "archived",
+                    "archival_date": "2025-05-30T11:00:00",
+                },
+            ]
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.type = "cancelled"
+        args.store = str(temp_storage)
+        with patch("tasker.STORE", temp_storage):
+            tasker.cmd_history(args)
+        captured = capsys.readouterr()
+        assert "HISTORY: cancelled" in captured.out
+        assert "Cancelled 1" in captured.out
+        assert "Archived 1" not in captured.out
+
+    def test_history_archived(self, temp_storage, plain_mode, capsys):
+        """Test showing only archived tasks in history."""
+        data = {
+            "history": [
+                {
+                    "task": "Cancelled 1",
+                    "state": "cancelled",
+                    "cancellation_date": "2025-05-30T10:00:00",
+                },
+                {
+                    "task": "Archived 1",
+                    "state": "archived",
+                    "archival_date": "2025-05-30T11:00:00",
+                },
+            ]
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.type = "archived"
+        args.store = str(temp_storage)
+        with patch("tasker.STORE", temp_storage):
+            tasker.cmd_history(args)
+        captured = capsys.readouterr()
+        assert "HISTORY: archived" in captured.out
+        assert "Archived 1" in captured.out
+        assert "Cancelled 1" not in captured.out
+
+    def test_history_all(self, temp_storage, plain_mode, capsys):
+        """Test showing all tasks in history."""
+        data = {
+            "history": [
+                {
+                    "task": "Cancelled 1",
+                    "state": "cancelled",
+                    "cancellation_date": "2025-05-30T10:00:00",
+                },
+                {
+                    "task": "Archived 1",
+                    "state": "archived",
+                    "archival_date": "2025-05-30T11:00:00",
+                },
+            ]
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.type = "all"
+        args.store = str(temp_storage)
+        with patch("tasker.STORE", temp_storage):
+            tasker.cmd_history(args)
+        captured = capsys.readouterr()
+        assert "HISTORY: all" in captured.out
+        assert "Cancelled 1" in captured.out
+        assert "Archived 1" in captured.out
+
+    def test_history_no_matches(self, temp_storage, plain_mode, capsys):
+        """Test showing history when there are no matching tasks."""
+        data = {
+            "history": [
+                {
+                    "task": "Archived 1",
+                    "state": "archived",
+                    "archival_date": "2025-05-30T11:00:00",
+                },
+            ]
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+        args = MagicMock()
+        args.type = "cancelled"
+        args.store = str(temp_storage)
+        with patch("tasker.STORE", temp_storage):
+            tasker.cmd_history(args)
+        captured = capsys.readouterr()
+        assert "No matching tasks in history." in captured.out

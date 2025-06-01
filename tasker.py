@@ -250,13 +250,44 @@ def safe_int_input(prompt, min_val=None, max_val=None):
 # ===== Storage helpers =====
 
 
+def migrate_task_data(data: dict) -> bool:
+    """
+    Migrate all tasks in the data dict to ensure they have a 'state' field.
+    Returns True if any migration was performed.
+    """
+    migrated = False
+
+    def migrate_task(task, default_state):
+        nonlocal migrated
+        if isinstance(task, dict) and "state" not in task:
+            task["state"] = default_state
+            migrated = True
+
+    for key, value in data.items():
+        if key == "backlog":
+            for task in value:
+                migrate_task(task, "active")
+        elif isinstance(value, dict):
+            if "todo" in value and value["todo"]:
+                migrate_task(value["todo"], "active")
+            if "done" in value and isinstance(value["done"], list):
+                for task in value["done"]:
+                    if isinstance(task, dict) and "task" in task:
+                        migrate_task(task["task"], "done")
+    return migrated
+
+
 def load():
     """Load data from storage file, returning empty dict if file doesn't exist."""
     try:
         if STORE.exists():
             content = STORE.read_text(encoding=Config.STORAGE_ENCODING)
-            return json.loads(content)
-        return {}
+            data = json.loads(content)
+            if migrate_task_data(data):
+                save(data)  # Save migrated data
+            return data
+        else:
+            return {}
     except json.JSONDecodeError as e:
         safe_print(f"{emoji('error')} Storage file corrupted: {e}")
         safe_print("Creating backup and starting fresh...")
@@ -279,12 +310,12 @@ def save(data):
         content = json.dumps(data, indent=2)
         STORE.write_text(content, encoding=Config.STORAGE_ENCODING)
         return True
-    except (OSError, PermissionError) as e:
-        safe_print(f"{emoji('error')} Cannot save to storage file: {e}")
+    except (OSError, PermissionError) as e_os:
+        safe_print(f"{emoji('error')} Cannot save to storage file: {e_os}")
         safe_print("Changes will be lost when the program exits.")
         return False
-    except (TypeError, ValueError) as e:
-        safe_print(f"{emoji('error')} Data serialization error: {e}")
+    except (TypeError, ValueError) as e_json:
+        safe_print(f"{emoji('error')} Data serialization error: {e_json}")
         return False
 
 
@@ -385,18 +416,18 @@ def complete_current_task(today):
     if isinstance(today["todo"], dict):
         task_data = today["todo"]
         task_text = task_data["task"]
+        task_data["state"] = "done"
     else:
         # Legacy format - convert string to dict
         task_text = today["todo"]
         task_data = create_task_data(task_text)
-
+        task_data["state"] = "done"
     # Store complete task data in done list
     done_item = {
         "id": uuid.uuid4().hex[:8],
         "task": task_data,  # Store full task data structure
         "ts": datetime.now().isoformat(timespec="seconds"),
     }
-
     today["done"].append(done_item)
     safe_print(f"{emoji('complete')} Completed: {repr(task_text)}")
     today["todo"] = None
@@ -554,7 +585,7 @@ def format_task_with_tags(
         replacement = f"{CATEGORY_COLOR}@{category}{RESET_COLOR}"
         # Use word boundaries to avoid partial matches
         formatted_text = re.sub(
-            f"@{re.escape(category)}\\b",
+            f"@{re.escape(category)}\\\\b",
             replacement,
             formatted_text,
             flags=re.IGNORECASE,
@@ -564,7 +595,7 @@ def format_task_with_tags(
     for tag in tags:
         replacement = f"{TAG_COLOR}#{tag}{RESET_COLOR}"
         formatted_text = re.sub(
-            f"#{re.escape(tag)}\\b", replacement, formatted_text, flags=re.IGNORECASE
+            f"#{re.escape(tag)}\\\\b", replacement, formatted_text, flags=re.IGNORECASE
         )
 
     return formatted_text
@@ -573,20 +604,18 @@ def format_task_with_tags(
 def create_task_data(task_text: str) -> dict:
     """
     Create a task data structure with parsed tags.
-
     Args:
         task_text: The task description
-
     Returns:
-        dict: Task data with text, categories, tags, and timestamp
+        dict: Task data with text, categories, tags, state, and timestamp
     """
     text, categories, tags = parse_tags(task_text)
-
     return {
         "task": text,
         "categories": categories,
         "tags": tags,
         "ts": datetime.now().isoformat(timespec="seconds"),
+        "state": "active",
     }
 
 
@@ -945,6 +974,20 @@ def migrate_task_to_tagged_format(task_data: dict) -> dict:
     updated_task["tags"] = tags
 
     return updated_task
+
+
+def create_done_item(task_data: dict) -> dict:
+    """Create a 'done' item structure for a given task.
+    Args:
+        task_data: The task dictionary (should have 'state', 'task', etc.)
+    Returns:
+        dict: A structured item for the 'done' list.
+    """
+    return {
+        "id": uuid.uuid4().hex[:8],  # Generate a new ID for the done entry
+        "task": task_data,  # This is the task dict itself (which includes its original ts, state, etc.)
+        "ts": datetime.now().isoformat(),  # Timestamp of completion/cancellation for this 'done' record
+    }
 
 
 # ===== Command functions =====
@@ -1353,6 +1396,105 @@ def cmd_backlog(args):
                 f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})"
             )
 
+    elif args.subcmd == "cancel":
+        if not backlog:
+            safe_print(f"{emoji('error')} No backlog items to cancel.")
+            return
+
+        index_to_cancel = args.index - 1  # 1-based to 0-based
+
+        if not (0 <= index_to_cancel < len(backlog)):
+            safe_print(
+                f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})"
+            )
+            return
+
+        task_to_cancel = backlog.pop(index_to_cancel)
+
+        if not isinstance(task_to_cancel, dict):
+            safe_print(
+                f"{emoji('error')} Task item at index {args.index} has unexpected format. Cannot cancel."
+            )
+            backlog.insert(index_to_cancel, task_to_cancel)
+            return
+
+        task_text = task_to_cancel.get("task", "Unknown task")
+        task_to_cancel["state"] = "cancelled"
+        task_to_cancel["cancellation_date"] = datetime.now().isoformat(
+            timespec="seconds"
+        )
+
+        # Move to history
+        if "history" not in data:
+            data["history"] = []
+        data["history"].append(task_to_cancel)
+
+        if save(data):
+            safe_print(f"{emoji('error')} Cancelled from backlog: {repr(task_text)}")
+        else:
+            backlog.insert(index_to_cancel, task_to_cancel)
+            if data["history"] and data["history"][-1] is task_to_cancel:
+                data["history"].pop()
+            safe_print(
+                f"{emoji('error')} Failed to save cancellation. Task restored to backlog in memory."
+            )
+
+
+def cmd_cancel(args):
+    global STORE
+    if hasattr(args, "store") and args.store:
+        STORE = Path(args.store)
+
+    data = load()
+    today = ensure_today(data)
+
+    if today.get("todo"):
+        task_to_cancel = today["todo"]
+        task_to_cancel["state"] = "cancelled"
+        task_to_cancel["cancelled_ts"] = datetime.now().isoformat()
+
+        if "done" not in today:
+            today["done"] = []
+
+        today["done"].append(create_done_item(task_to_cancel))
+        today["todo"] = None
+
+        if save(data):
+            safe_print(f"{emoji('error')} Cancelled: '{task_to_cancel.get('task')}'")
+        else:
+            safe_print(f"{emoji('error')} Failed to save cancelled task.")
+    else:
+        safe_print(f"{emoji('error')} No active task to cancel.")
+
+
+def cmd_history(args):
+    """Show task history filtered by type (cancelled, archived, all)."""
+    data = load()
+    history = data.get("history", [])
+    type_filter = getattr(args, "type", "all")
+    filtered = []
+    if type_filter == "cancelled":
+        filtered = [t for t in history if t.get("state") == "cancelled"]
+    elif type_filter == "archived":
+        filtered = [t for t in history if t.get("state") == "archived"]
+    else:
+        filtered = history
+    if not filtered:
+        safe_print("No matching tasks in history.")
+        return
+    safe_print(f"=== HISTORY: {type_filter} ===")
+    for t in filtered:
+        task_text = t.get("task", "")
+        state = t.get("state", "")
+        ts = (
+            t.get("cancellation_date")
+            or t.get("archival_date")
+            or t.get("completion_date")
+            or t.get("ts")
+        )
+        ts_str = f"[{ts}]" if ts else ""
+        safe_print(f"- {task_text} [{state}] {ts_str}")
+
 
 # ===== Argparse + main =====
 
@@ -1379,6 +1521,21 @@ def build_parser():
     sub.add_parser("done").set_defaults(func=cmd_done)
     sub.add_parser("newday").set_defaults(func=cmd_newday)
 
+    # Add cancel command
+    sub.add_parser("cancel").set_defaults(func=cmd_cancel)
+
+    # Add history command
+    history_parser = sub.add_parser(
+        "history", help="View task history (cancelled, archived, all)"
+    )
+    history_parser.add_argument(
+        "--type",
+        choices=["cancelled", "archived", "all"],
+        default="all",
+        help="Type of history to view (cancelled, archived, all)",
+    )
+    history_parser.set_defaults(func=cmd_history)
+
     b = sub.add_parser("backlog")
     b_sub = b.add_subparsers(dest="subcmd", required=True)
 
@@ -1403,6 +1560,11 @@ def build_parser():
     b_remove = b_sub.add_parser("remove", help="Remove a backlog item by index")
     b_remove.add_argument("index", type=int, help="1-based index of item to remove")
     b_remove.set_defaults(func=cmd_backlog)
+
+    # Add backlog cancel sub-command
+    b_cancel = b_sub.add_parser("cancel", help="Cancel a backlog item by index")
+    b_cancel.add_argument("index", type=int, help="1-based index of item to cancel")
+    b_cancel.set_defaults(func=cmd_backlog)
 
     return p
 
