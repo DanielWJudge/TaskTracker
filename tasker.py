@@ -1486,7 +1486,12 @@ def cmd_history(args):
     for t in filtered:
         task_text = t.get("task", "")
         state = t.get("state", "")
-        ts = t.get("cancellation_date") or t.get("archival_date") or t.get("completion_date") or t.get("ts")
+        ts = (
+            t.get("cancellation_date")
+            or t.get("archival_date")
+            or t.get("completion_date")
+            or t.get("ts")
+        )
         ts_str = f"[{ts}]" if ts else ""
         safe_print(f"- {task_text} [{state}] {ts_str}")
 
@@ -1520,7 +1525,9 @@ def build_parser():
     sub.add_parser("cancel").set_defaults(func=cmd_cancel)
 
     # Add history command
-    history_parser = sub.add_parser("history", help="View task history (cancelled, archived, all)")
+    history_parser = sub.add_parser(
+        "history", help="View task history (cancelled, archived, all)"
+    )
     history_parser.add_argument(
         "--type",
         choices=["cancelled", "archived", "all"],
