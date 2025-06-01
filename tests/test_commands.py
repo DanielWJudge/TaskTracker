@@ -361,6 +361,42 @@ class TestHandleNextTaskSelection:
         # Check nothing was changed
         assert today["todo"] is None
 
+    def test_select_backlog_item_invalid_format(self, temp_storage, plain_mode, capsys):
+        """Test selecting backlog item with invalid format."""
+        data = {
+            "backlog": [
+                {"invalid": "format"},  # Missing task field
+                {"task": "Second task", "ts": "2025-05-30T11:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        today = data["2025-05-30"]
+
+        with patch("momentum.momentum.safe_input", return_value="1"), patch(
+            "momentum.momentum.save", return_value=True
+        ), patch("momentum.momentum.cmd_status"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
+        ):
+            handle_next_task_selection(data, today)
+
+        captured = capsys.readouterr()
+        assert "Pulled from backlog:" in captured.out
+        assert "{'invalid': 'format'}" in captured.out
+
+        # Check data was updated - now expecting structured format
+        assert isinstance(today["todo"], dict)
+        active_task = today["todo"]
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert active_task["task"] == "{'invalid': 'format'}"  # Should be converted to string
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
+        assert len(data["backlog"]) == 1  # one item removed
+        assert data["backlog"][0]["task"] == "Second task"  # correct item remained
+
 
 class TestCmdStatus:
     """Test the cmd_status command function."""
