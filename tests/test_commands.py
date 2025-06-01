@@ -390,7 +390,9 @@ class TestHandleNextTaskSelection:
             active_task, dict
         ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
         try:
-            assert active_task["task"] == "{'invalid': 'format'}"  # Should be converted to string
+            assert (
+                active_task["task"] == "{'invalid': 'format'}"
+            )  # Should be converted to string
         except Exception:
             print(f"active_task value: {active_task}, type: {type(active_task)}")
             raise
