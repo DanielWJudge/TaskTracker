@@ -1,13 +1,79 @@
 # Momentum
 
-[![CI](https://github.com/DanielWJudge/Momentum/actions/workflows/test.yml/badge.svg)](https://github.com/DanielWJudge/Momentum/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/DanielWJudge/Momentum/branch/main/graph/badge.svg)](https://codecov.io/gh/DanielWJudge/Momentum)
+A minimal, one-task-at-a-time CLI tracker.
 
-_A battle-tested, one‑task‑at‑a‑time CLI tracker that enforces focus and ships faster._
+Momentum is a command-line task management tool that enforces focus by allowing only one active task at a time. Features a persistent backlog, interactive prompts, and clean status displays with optional emoji/color output.
 
-[![Tests](https://img.shields.io/badge/tests-250%20passing-brightgreen)]()
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)]()
-[![Python](https://img.shields.io/badge/python-3.8+-blue)]()
+---
+
+## Project Structure
+
+```
+Momentum/
+├── src/
+│   └── momentum/
+│       ├── __init__.py
+│       ├── __main__.py
+│       └── momentum.py
+├── tests/
+├── pyproject.toml
+├── LICENSE
+└── README.md
+```
+
+---
+
+## Installation
+
+You need Python 3.8 or newer.
+
+Install in editable/development mode:
+
+```sh
+pip install -e .
+```
+
+---
+
+## Usage
+
+### Run as a module (no install required):
+
+```sh
+python -m momentum add "Task description"
+python -m momentum done
+python -m momentum backlog add "Future task"
+python -m momentum status
+```
+
+### Or use the CLI entry point (after install):
+
+```sh
+momentum add "Task description"
+momentum done
+momentum backlog add "Future task"
+momentum status
+```
+
+---
+
+## Development & Testing
+
+- All source code is under `src/momentum/` (modern src layout)
+- Tests are in the `tests/` directory
+- Run tests with:
+
+```sh
+pytest
+```
+
+- The `pytest.ini` ensures the `src` directory is on the Python path for tests.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
