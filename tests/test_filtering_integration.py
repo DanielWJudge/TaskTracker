@@ -13,31 +13,31 @@ class TestCategoryFilteringIntegration:
 
     @pytest.fixture
     def temp_project_dir(self):
-        """Create a temporary directory with tasker.py for testing."""
+        """Create a temporary directory with momentum.py for testing."""
         temp_dir = tempfile.mkdtemp()
         temp_path = Path(temp_dir)
 
-        # Copy tasker.py to temp directory
-        original_tasker = Path(__file__).parent.parent / "tasker.py"
-        temp_tasker = temp_path / "tasker.py"
-        shutil.copy2(original_tasker, temp_tasker)
+        # Copy momentum.py to temp directory
+        original_momentum = Path(__file__).parent.parent / "momentum.py"
+        temp_momentum = temp_path / "momentum.py"
+        shutil.copy2(original_momentum, temp_momentum)
 
         # Create temp storage file path
         temp_storage = temp_path / "test_storage.json"
 
-        yield temp_path, temp_tasker, temp_storage
+        yield temp_path, temp_momentum, temp_storage
 
         # Cleanup
         shutil.rmtree(temp_dir)
 
-    def run_cli(self, temp_tasker, temp_storage, command, stdin_input=None):
+    def run_cli(self, temp_momentum, temp_storage, command, stdin_input=None):
         """Helper to run CLI commands and return result."""
         # Handle quoted arguments properly for Windows and spaces
         if "--filter" in command:
             # Split command carefully to preserve filter arguments
             parts = [
                 "python",
-                str(temp_tasker),
+                str(temp_momentum),
                 "--plain",
                 "--store",
                 str(temp_storage),
@@ -61,7 +61,7 @@ class TestCategoryFilteringIntegration:
         else:
             parts = [
                 "python",
-                str(temp_tasker),
+                str(temp_momentum),
                 "--plain",
                 "--store",
                 str(temp_storage),
@@ -72,7 +72,7 @@ class TestCategoryFilteringIntegration:
             **subprocess.os.environ,
             "PYTHONIOENCODING": "utf-8",
             "PYTHONLEGACYWINDOWSSTDIO": "1",
-            "TASKER_TODAY_KEY": "2025-05-30",
+            "MOMENTUM_TODAY_KEY": "2025-05-30",
         }
 
         result = subprocess.run(
@@ -191,10 +191,10 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_work(self, temp_project_dir):
         """Test status filtering by work category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @work")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @work")
 
         assert result.returncode == 0
         assert "(filtered by: @work)" in result.stdout
@@ -205,10 +205,10 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_personal(self, temp_project_dir):
         """Test status filtering by personal category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @personal")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @personal")
 
         assert result.returncode == 0
         assert "(filtered by: @personal)" in result.stdout
@@ -224,11 +224,11 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_multiple_categories(self, temp_project_dir):
         """Test status filtering by multiple categories."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "status --filter @work,@personal"
+            temp_momentum, temp_storage, "status --filter @work,@personal"
         )
 
         assert result.returncode == 0
@@ -240,10 +240,12 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_nonexistent_category(self, temp_project_dir):
         """Test status filtering by nonexistent category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @nonexistent")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "status --filter @nonexistent"
+        )
 
         assert result.returncode == 0
         assert "(filtered by: @nonexistent)" in result.stdout
@@ -252,10 +254,10 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_no_filter(self, temp_project_dir):
         """Test status without filter shows all tasks."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "status")
+        result = self.run_cli(temp_momentum, temp_storage, "status")
 
         assert result.returncode == 0
         assert "(filtered by:" not in result.stdout
@@ -266,9 +268,9 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_invalid_filter_format(self, temp_project_dir):
         """Test status with invalid filter format."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter work")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter work")
 
         assert result.returncode == 0
         assert (
@@ -278,10 +280,10 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_tag_urgent(self, temp_project_dir):
         """Test status filtering by #urgent tag."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "#urgent"')
+        result = self.run_cli(temp_momentum, temp_storage, 'status --filter "#urgent"')
 
         assert result.returncode == 0
         assert "(filtered by: #urgent)" in result.stdout
@@ -293,10 +295,10 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_tag_low(self, temp_project_dir):
         """Test status filtering by #low tag."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, 'status --filter "#low"')
+        result = self.run_cli(temp_momentum, temp_storage, 'status --filter "#low"')
 
         assert result.returncode == 0
         assert "(filtered by: #low)" in result.stdout
@@ -306,12 +308,12 @@ class TestStatusFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_combined_category_tag(self, temp_project_dir):
         """Test status filtering by @work and #urgent."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         # Note: The active task is @work #important, so it should not show up
         result = self.run_cli(
-            temp_tasker, temp_storage, 'status --filter "@work,#urgent"'
+            temp_momentum, temp_storage, 'status --filter "@work,#urgent"'
         )
 
         assert result.returncode == 0
@@ -331,10 +333,12 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_work(self, temp_project_dir):
         """Test backlog list filtering by work category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "backlog list --filter @work"
+        )
 
         assert result.returncode == 0
         assert "Backlog (filtered by: @work):" in result.stdout
@@ -346,11 +350,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_personal(self, temp_project_dir):
         """Test backlog list filtering by personal category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog list --filter @personal"
+            temp_momentum, temp_storage, "backlog list --filter @personal"
         )
 
         assert result.returncode == 0
@@ -362,11 +366,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_client(self, temp_project_dir):
         """Test backlog list filtering by client category."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog list --filter @client"
+            temp_momentum, temp_storage, "backlog list --filter @client"
         )
 
         assert result.returncode == 0
@@ -377,11 +381,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_multiple_categories(self, temp_project_dir):
         """Test backlog list filtering by multiple categories."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog list --filter @work,@personal"
+            temp_momentum, temp_storage, "backlog list --filter @work,@personal"
         )
 
         assert result.returncode == 0
@@ -395,11 +399,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_no_matches(self, temp_project_dir):
         """Test backlog list when no items match filter."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog list --filter @nonexistent"
+            temp_momentum, temp_storage, "backlog list --filter @nonexistent"
         )
 
         assert result.returncode == 0
@@ -408,10 +412,10 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_no_filter(self, temp_project_dir):
         """Test backlog list without filter shows all items."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list")
+        result = self.run_cli(temp_momentum, temp_storage, "backlog list")
 
         assert result.returncode == 0
         assert "Backlog:" in result.stdout
@@ -424,9 +428,9 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_invalid_filter(self, temp_project_dir):
         """Test backlog list with invalid filter format."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter work")
+        result = self.run_cli(temp_momentum, temp_storage, "backlog list --filter work")
 
         assert result.returncode == 0
         assert (
@@ -436,11 +440,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_tag_urgent(self, temp_project_dir):
         """Test backlog list filtering by #urgent tag."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, 'backlog list --filter "#urgent"'
+            temp_momentum, temp_storage, 'backlog list --filter "#urgent"'
         )
 
         assert result.returncode == 0
@@ -453,11 +457,11 @@ class TestBacklogFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_combined(self, temp_project_dir):
         """Test backlog list filtering by @work and #urgent."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, 'backlog list --filter "@work,#urgent"'
+            temp_momentum, temp_storage, 'backlog list --filter "@work,#urgent"'
         )
 
         assert result.returncode == 0
@@ -476,26 +480,28 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
     def test_add_and_filter_workflow(self, temp_project_dir):
         """Test adding categorized tasks and filtering them."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
         # Add work tasks to backlog
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog add Work task 1 @work"
+            temp_momentum, temp_storage, "backlog add Work task 1 @work"
         )
         assert result.returncode == 0
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog add Personal task @personal"
+            temp_momentum, temp_storage, "backlog add Personal task @personal"
         )
         assert result.returncode == 0
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog add Mixed task @work @personal"
+            temp_momentum, temp_storage, "backlog add Mixed task @work @personal"
         )
         assert result.returncode == 0
 
         # Filter by work category
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "backlog list --filter @work"
+        )
         assert result.returncode == 0
         assert "Work task 1 @work" in result.stdout
         assert "Mixed task @work @personal" in result.stdout
@@ -503,7 +509,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
         # Filter by personal category
         result = self.run_cli(
-            temp_tasker, temp_storage, "backlog list --filter @personal"
+            temp_momentum, temp_storage, "backlog list --filter @personal"
         )
         assert result.returncode == 0
         assert "Personal task @personal" in result.stdout
@@ -512,46 +518,50 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
     def test_complete_and_filter_workflow(self, temp_project_dir):
         """Test completing categorized tasks and filtering status."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
         # Add and activate a work task
-        result = self.run_cli(temp_tasker, temp_storage, "add Work task @work #urgent")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "add Work task @work #urgent"
+        )
         assert result.returncode == 0
 
         # Complete the task
-        result = self.run_cli(temp_tasker, temp_storage, "done", stdin_input="\n")
+        result = self.run_cli(temp_momentum, temp_storage, "done", stdin_input="\n")
         assert result.returncode == 0
 
         # Add a personal task
-        result = self.run_cli(temp_tasker, temp_storage, "add Personal task @personal")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "add Personal task @personal"
+        )
         assert result.returncode == 0
 
         # Complete the personal task
-        result = self.run_cli(temp_tasker, temp_storage, "done", stdin_input="\n")
+        result = self.run_cli(temp_momentum, temp_storage, "done", stdin_input="\n")
         assert result.returncode == 0
 
         # Filter status by work
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @work")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @work")
         assert result.returncode == 0
         assert "Work task @work #urgent" in result.stdout
         assert "Personal task @personal" not in result.stdout
 
         # Filter status by personal
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @personal")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @personal")
         assert result.returncode == 0
         assert "Personal task @personal" in result.stdout
         assert "Work task @work" not in result.stdout
 
     def test_case_insensitive_filtering(self, temp_project_dir):
         """Test that filtering is case-insensitive for categories and tags."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(
             temp_storage
         )  # Uses @work, @personal, #urgent, #low, #someday, #important
 
         # Test case-insensitive category filtering for status
         result_cat_status = self.run_cli(
-            temp_tasker, temp_storage, 'status --filter "@WORK"'
+            temp_momentum, temp_storage, 'status --filter "@WORK"'
         )
         assert result_cat_status.returncode == 0
         assert (
@@ -570,7 +580,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
         # Test case-insensitive tag filtering for status
         result_tag_status = self.run_cli(
-            temp_tasker, temp_storage, 'status --filter "#URGENT"'
+            temp_momentum, temp_storage, 'status --filter "#URGENT"'
         )
         assert result_tag_status.returncode == 0
         assert "(filtered by: #urgent)" in result_tag_status.stdout  # Output normalized
@@ -586,7 +596,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
         # Test case-insensitive category filtering for backlog
         result_cat_backlog = self.run_cli(
-            temp_tasker, temp_storage, 'backlog list --filter "@CLIENT"'
+            temp_momentum, temp_storage, 'backlog list --filter "@CLIENT"'
         )
         assert result_cat_backlog.returncode == 0
         assert "(filtered by: @client)" in result_cat_backlog.stdout
@@ -594,7 +604,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
         # Test case-insensitive tag filtering for backlog
         result_tag_backlog = self.run_cli(
-            temp_tasker, temp_storage, 'backlog list --filter "#SOMEDAY"'
+            temp_momentum, temp_storage, 'backlog list --filter "#SOMEDAY"'
         )
         assert result_tag_backlog.returncode == 0
         assert "(filtered by: #someday)" in result_tag_backlog.stdout
@@ -602,7 +612,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
         # Test combined case-insensitive filtering
         result_combined = self.run_cli(
-            temp_tasker, temp_storage, 'status --filter "@PERSONAL,#URGENT"'
+            temp_momentum, temp_storage, 'status --filter "@PERSONAL,#URGENT"'
         )
         assert result_combined.returncode == 0
         assert "(filtered by: @personal, #urgent)" in result_combined.stdout
@@ -618,7 +628,7 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
 
     def test_legacy_format_compatibility(self, temp_project_dir):
         """Test filtering with legacy task formats (no explicit category/tag fields)."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
         # Manually create legacy format data
         legacy_data = {
@@ -640,17 +650,19 @@ class TestFilteringWorkflows(TestCategoryFilteringIntegration):
         temp_storage.write_text(json.dumps(legacy_data, indent=2), encoding="utf-8")
 
         # Test backlog filtering
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @work")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "backlog list --filter @work"
+        )
         assert result.returncode == 0
         assert "Legacy work @work" in result.stdout
         assert "Legacy personal @personal" not in result.stdout
 
         # Test status filtering
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @work")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @work")
         assert result.returncode == 0
         assert "Legacy active @work" in result.stdout
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @personal")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @personal")
         assert result.returncode == 0
         assert "Legacy completed @personal" in result.stdout
         assert "No active task matches filter" in result.stdout
@@ -661,35 +673,37 @@ class TestFilteringErrorHandling(TestCategoryFilteringIntegration):
 
     def test_invalid_category_characters(self, temp_project_dir):
         """Test filtering with invalid category characters."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
         # Test with a simpler invalid format that doesn't cause argument parsing issues
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @work!")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @work!")
         assert result.returncode == 0
         assert "Invalid category format" in result.stdout
 
     def test_empty_category_name(self, temp_project_dir):
         """Test filtering with empty category name."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
-        result = self.run_cli(temp_tasker, temp_storage, "status --filter @")
+        result = self.run_cli(temp_momentum, temp_storage, "status --filter @")
         assert result.returncode == 0
         assert "Invalid category format" in result.stdout
 
     def test_special_characters_in_filter(self, temp_project_dir):
         """Test filtering with special characters."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
-        result = self.run_cli(temp_tasker, temp_storage, "backlog list --filter @work!")
+        result = self.run_cli(
+            temp_momentum, temp_storage, "backlog list --filter @work!"
+        )
         assert result.returncode == 0
         assert "Invalid category format" in result.stdout
 
     def test_mixed_valid_invalid_categories(self, temp_project_dir):
         """Test filtering with mix of valid and invalid categories."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
 
         result = self.run_cli(
-            temp_tasker, temp_storage, "status --filter @work,invalid"
+            temp_momentum, temp_storage, "status --filter @work,invalid"
         )
         assert result.returncode == 0
         assert (
@@ -699,12 +713,12 @@ class TestFilteringErrorHandling(TestCategoryFilteringIntegration):
 
     def test_whitespace_handling(self, temp_project_dir):
         """Test filtering with various whitespace scenarios."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         # Test with simple comma-separated categories (our parse_filter_categories handles internal spaces)
         result = self.run_cli(
-            temp_tasker, temp_storage, "status --filter @work,@personal"
+            temp_momentum, temp_storage, "status --filter @work,@personal"
         )
         assert result.returncode == 0
         assert "(filtered by: @work, @personal)" in result.stdout
@@ -715,11 +729,11 @@ class TestCombinedFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_multiple_tags(self, temp_project_dir):
         """Test status filtering by multiple tags (#urgent, #low)."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, 'status --filter "#urgent,#low"'
+            temp_momentum, temp_storage, 'status --filter "#urgent,#low"'
         )
 
         assert result.returncode == 0
@@ -732,12 +746,12 @@ class TestCombinedFiltering(TestCategoryFilteringIntegration):
 
     def test_status_filter_multiple_categories_and_tags(self, temp_project_dir):
         """Test status filtering by multiple categories (@work, @personal) and tags (#urgent, #someday)."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         # This filter should only match tasks that have (@work OR @personal) AND (#urgent OR #someday)
         result = self.run_cli(
-            temp_tasker,
+            temp_momentum,
             temp_storage,
             'status --filter "@work,@personal,#urgent,#someday"',
         )
@@ -762,11 +776,11 @@ class TestCombinedFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_multiple_tags(self, temp_project_dir):
         """Test backlog list filtering by multiple tags (#urgent, #low)."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker, temp_storage, 'backlog list --filter "#urgent,#low"'
+            temp_momentum, temp_storage, 'backlog list --filter "#urgent,#low"'
         )
 
         assert result.returncode == 0
@@ -780,11 +794,11 @@ class TestCombinedFiltering(TestCategoryFilteringIntegration):
 
     def test_backlog_list_filter_multiple_categories_and_tags(self, temp_project_dir):
         """Test backlog list filtering by multiple categories (@work, @personal) and tags (#urgent, #someday)."""
-        temp_path, temp_tasker, temp_storage = temp_project_dir
+        temp_path, temp_momentum, temp_storage = temp_project_dir
         self.setup_test_data(temp_storage)
 
         result = self.run_cli(
-            temp_tasker,
+            temp_momentum,
             temp_storage,
             'backlog list --filter "@work,@personal,#urgent,#someday"',
         )

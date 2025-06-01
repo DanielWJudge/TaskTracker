@@ -1,6 +1,6 @@
 # TODO
 
-A living backlog of ideas, features, and future improvements for the TaskTracker CLI tool.
+A living backlog of ideas, features, and future improvements for the Momentum CLI tool.
 
 ---
 
@@ -27,7 +27,7 @@ A living backlog of ideas, features, and future improvements for the TaskTracker
 
 * [x] Task categorization by project/team
 * [ ] Assign due dates to backlog tasks
-* [ ] Mark task as “no longer needed” (canceled/obsolete)
+* [ ] Mark task as "no longer needed" (canceled/obsolete)
 * [ ] Sort backlog by filters (created date, due date, priority)
 * [ ] Pomodoro timer with CLI progress bar + time remaining
 * [ ] Capture estimated vs. actual time for tasks
@@ -51,4 +51,4 @@ A living backlog of ideas, features, and future improvements for the TaskTracker
 
 * Keep CLI interaction minimal—favor speed over features
 * No dependencies unless value is extreme (keep it fast and portable)
-* All enhancements must preserve the “one active task” philosophy
+* All enhancements must preserve the "one active task" philosophy

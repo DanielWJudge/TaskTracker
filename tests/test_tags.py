@@ -1,6 +1,6 @@
 """Tests for task categories and tags functionality."""
 
-from tasker import parse_tags, format_task_with_tags, validate_tag_format
+from momentum import parse_tags, format_task_with_tags, validate_tag_format
 
 
 class TestParseTagsBasic:
@@ -246,7 +246,7 @@ class TestTagIntegration:
 
     def test_create_tagged_task_data(self):
         """Test creating task data structure with tags."""
-        from tasker import create_task_data
+        from momentum import create_task_data
 
         task_text = "Fix bug @work #urgent"
         task_data = create_task_data(task_text)
@@ -265,7 +265,7 @@ class TestTagIntegration:
 
     def test_create_untagged_task_data(self):
         """Test creating task data for untagged task (backward compatibility)."""
-        from tasker import create_task_data
+        from momentum import create_task_data
 
         task_text = "Simple task"
         task_data = create_task_data(task_text)
@@ -281,7 +281,7 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_valid(self):
         """Test validation of valid tagged task."""
-        from tasker import validate_task_name
+        from momentum import validate_task_name
 
         task = "Deploy feature @work #urgent"
         is_valid, error_msg = validate_task_name(task)
@@ -290,7 +290,7 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_too_long(self):
         """Test validation when task + tags exceeds length limit."""
-        from tasker import validate_task_name, Config
+        from momentum import validate_task_name, Config
 
         base_task = "A" * (Config.MAX_TASK_LENGTH - 10)
         task = f"{base_task} @work #urgent #high_priority #important"
@@ -300,7 +300,7 @@ class TestTaskValidationWithTags:
 
     def test_validate_tagged_task_invalid_tag_format(self):
         """Test validation with invalid tag formats."""
-        from tasker import validate_task_name
+        from momentum import validate_task_name
 
         task = "Task @work space #urgent!"
         is_valid, error_msg = validate_task_name(task)
