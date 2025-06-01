@@ -694,6 +694,80 @@ class TestCmdBacklog:
         cancelled_task = next(t for t in history if t.get("task") == "Second task")
         assert "cancellation_date" in cancelled_task
 
+    def test_backlog_cancel_invalid_index(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item with an invalid index."""
+        data = {
+            "backlog": [
+                {"task": "Only task", "ts": "2025-05-30T10:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 5  # invalid index
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "Invalid backlog index: 5" in captured.out
+        # Backlog should remain unchanged
+        updated_data = tasker.load()
+        assert len(updated_data["backlog"]) == 1
+        assert updated_data["backlog"][0]["task"] == "Only task"
+        assert "history" not in updated_data or not updated_data["history"]
+
+    def test_backlog_cancel_empty_backlog(self, temp_storage, plain_mode, capsys):
+        """Test cancelling from an empty backlog."""
+        data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 1
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "No backlog items to cancel" in captured.out
+        # Backlog and history should remain empty
+        updated_data = tasker.load()
+        assert updated_data["backlog"] == []
+        assert "history" not in updated_data or not updated_data["history"]
+
+    def test_backlog_cancel_non_dict_item(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item that is not a dict (legacy/invalid data)."""
+        data = {
+            "backlog": [
+                "Legacy string task",
+                {"task": "Valid task", "ts": "2025-05-30T10:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 1  # try to cancel the legacy string
+        args.store = str(temp_storage)
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "unexpected format" in captured.out.lower()
+        # The legacy string should remain in backlog
+        updated_data = tasker.load()
+        assert updated_data["backlog"][0] == "Legacy string task"
+        # The valid task should still be present
+        assert updated_data["backlog"][1]["task"] == "Valid task"
+        # History should not contain the legacy string
+        assert "history" not in updated_data or not any(
+            t.get("task") == "Legacy string task" for t in updated_data["history"]
+        )
+
 
 class TestCmdCancel:
     """Test the cmd_cancel command function."""
