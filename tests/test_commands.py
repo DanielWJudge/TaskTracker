@@ -659,6 +659,41 @@ class TestCmdBacklog:
         # The updated code properly shows "No backlog items to remove" for empty backlog
         assert "No backlog items to remove" in captured.out
 
+    def test_backlog_cancel_valid_index(self, temp_storage, plain_mode, capsys):
+        """Test cancelling a backlog item by valid index."""
+        data = {
+            "backlog": [
+                {"task": "First task", "ts": "2025-05-30T10:00:00"},
+                {"task": "Second task", "ts": "2025-05-30T11:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        temp_storage.write_text(json.dumps(data), encoding="utf-8")
+
+        args = MagicMock()
+        args.subcmd = "cancel"
+        args.index = 2  # cancel second item (1-based)
+        args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
+
+        cmd_backlog(args)
+
+        captured = capsys.readouterr()
+        assert "Cancelled from backlog:" in captured.out
+        assert "Second task" in captured.out
+
+        # Reload and check that the backlog is updated and history contains the cancelled task
+        updated_data = tasker.load()
+        backlog = updated_data["backlog"]
+        history = updated_data.get("history", [])
+        assert len(backlog) == 1
+        assert backlog[0]["task"] == "First task"
+        assert any(
+            t.get("task") == "Second task" and t.get("state") == "cancelled"
+            for t in history
+        )
+        cancelled_task = next(t for t in history if t.get("task") == "Second task")
+        assert "cancellation_date" in cancelled_task
+
 
 class TestCmdCancel:
     """Test the cmd_cancel command function."""
