@@ -1467,6 +1467,30 @@ def cmd_cancel(args):
         safe_print(f"{emoji('error')} No active task to cancel.")
 
 
+def cmd_history(args):
+    """Show task history filtered by type (cancelled, archived, all)."""
+    data = load()
+    history = data.get("history", [])
+    type_filter = getattr(args, "type", "all")
+    filtered = []
+    if type_filter == "cancelled":
+        filtered = [t for t in history if t.get("state") == "cancelled"]
+    elif type_filter == "archived":
+        filtered = [t for t in history if t.get("state") == "archived"]
+    else:
+        filtered = history
+    if not filtered:
+        safe_print("No matching tasks in history.")
+        return
+    safe_print(f"=== HISTORY: {type_filter} ===")
+    for t in filtered:
+        task_text = t.get("task", "")
+        state = t.get("state", "")
+        ts = t.get("cancellation_date") or t.get("archival_date") or t.get("completion_date") or t.get("ts")
+        ts_str = f"[{ts}]" if ts else ""
+        safe_print(f"- {task_text} [{state}] {ts_str}")
+
+
 # ===== Argparse + main =====
 
 
@@ -1494,6 +1518,16 @@ def build_parser():
 
     # Add cancel command
     sub.add_parser("cancel").set_defaults(func=cmd_cancel)
+
+    # Add history command
+    history_parser = sub.add_parser("history", help="View task history (cancelled, archived, all)")
+    history_parser.add_argument(
+        "--type",
+        choices=["cancelled", "archived", "all"],
+        default="all",
+        help="Type of history to view (cancelled, archived, all)",
+    )
+    history_parser.set_defaults(func=cmd_history)
 
     b = sub.add_parser("backlog")
     b_sub = b.add_subparsers(dest="subcmd", required=True)
