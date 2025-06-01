@@ -1396,6 +1396,49 @@ def cmd_backlog(args):
                 f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})"
             )
 
+    elif args.subcmd == "cancel":
+        if not backlog:
+            safe_print(f"{emoji('error')} No backlog items to cancel.")
+            return
+
+        index_to_cancel = args.index - 1  # 1-based to 0-based
+
+        if not (0 <= index_to_cancel < len(backlog)):
+            safe_print(
+                f"{emoji('error')} Invalid backlog index: {args.index} (valid range: 1-{len(backlog)})"
+            )
+            return
+
+        task_to_cancel = backlog.pop(index_to_cancel)
+
+        if not isinstance(task_to_cancel, dict):
+            safe_print(
+                f"{emoji('error')} Task item at index {args.index} has unexpected format. Cannot cancel."
+            )
+            backlog.insert(index_to_cancel, task_to_cancel)
+            return
+
+        task_text = task_to_cancel.get("task", "Unknown task")
+        task_to_cancel["state"] = "cancelled"
+        task_to_cancel["cancellation_date"] = datetime.now().isoformat(
+            timespec="seconds"
+        )
+
+        # Move to history
+        if "history" not in data:
+            data["history"] = []
+        data["history"].append(task_to_cancel)
+
+        if save(data):
+            safe_print(f"{emoji('error')} Cancelled from backlog: {repr(task_text)}")
+        else:
+            backlog.insert(index_to_cancel, task_to_cancel)
+            if data["history"] and data["history"][-1] is task_to_cancel:
+                data["history"].pop()
+            safe_print(
+                f"{emoji('error')} Failed to save cancellation. Task restored to backlog in memory."
+            )
+
 
 def cmd_cancel(args):
     global STORE
@@ -1476,6 +1519,11 @@ def build_parser():
     b_remove = b_sub.add_parser("remove", help="Remove a backlog item by index")
     b_remove.add_argument("index", type=int, help="1-based index of item to remove")
     b_remove.set_defaults(func=cmd_backlog)
+
+    # Add backlog cancel sub-command
+    b_cancel = b_sub.add_parser("cancel", help="Cancel a backlog item by index")
+    b_cancel.add_argument("index", type=int, help="1-based index of item to cancel")
+    b_cancel.set_defaults(func=cmd_backlog)
 
     return p
 
