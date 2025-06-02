@@ -1244,7 +1244,7 @@ def cmd_status(args):
                     if part.startswith("#")
                 ):
                     display_text += f" #{tag}"
-            display_text = f"Active task {display_text.strip()}"
+            display_text = f"{display_text.strip()}"
             formatted_task = format_task_with_tags(
                 display_text, categories, tags, USE_PLAIN
             )
