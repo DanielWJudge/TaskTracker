@@ -1017,3 +1017,268 @@ class TestCmdHistory:
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "No matching tasks in history." in captured.out
+
+
+class TestUtilityFunctions:
+    """Test utility functions in momentum.py."""
+
+    def test_merge_and_dedup_case_insensitive(self):
+        """Test case-insensitive deduplication of lists."""
+        list1 = ["Work", "work", "Personal"]
+        list2 = ["WORK", "personal", "Urgent"]
+        result = momentum.merge_and_dedup_case_insensitive(list1, list2)
+        assert len(result) == 3
+        assert "Work" in result  # Preserves first occurrence's case
+        assert "Personal" in result
+        assert "Urgent" in result
+
+    def test_safe_print_unicode_error(self, capsys):
+        """Test safe_print handling of Unicode errors."""
+        # Create a string that will cause UnicodeEncodeError
+        text = "Hello \u2022 World"  # Bullet point character
+        with patch("builtins.print") as mock_print:
+
+            def side_effect(*args, **kwargs):
+                if args[0] == text:
+                    raise UnicodeEncodeError(
+                        "ascii", text, 0, 1, "ordinal not in range(128)"
+                    )
+                return None
+
+            mock_print.side_effect = side_effect
+            momentum.safe_print(text)
+            # Verify the fallback print was called with ASCII-safe version
+            mock_print.assert_any_call("Hello ? World")
+
+    def test_safe_int_input_validation(self, capsys):
+        """Test safe_int_input validation."""
+        with patch("builtins.input", side_effect=["abc", "0", "15", "10"]):
+            # Test invalid input
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "Invalid input" in captured.out
+
+            # Test below min
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "must be at least" in captured.out
+
+            # Test above max
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "must be at most" in captured.out
+
+            # Test valid input
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result == 10
+
+    def test_migrate_task_data(self):
+        """Test task data migration."""
+        data = {
+            "backlog": [
+                {"task": "Task 1"},  # Missing state
+                {"task": "Task 2", "state": "active"},  # Has state
+            ],
+            "2025-05-30": {
+                "todo": {"task": "Active task"},  # Missing state
+                "done": [
+                    {"task": {"task": "Done task"}},  # Missing state
+                    {"task": {"task": "Done task 2", "state": "done"}},  # Has state
+                ],
+            },
+        }
+        migrated = momentum.migrate_task_data(data)
+        assert migrated is True
+        assert data["backlog"][0]["state"] == "active"
+        assert data["backlog"][1]["state"] == "active"
+        assert data["2025-05-30"]["todo"]["state"] == "active"
+        assert data["2025-05-30"]["done"][0]["task"]["state"] == "done"
+        assert data["2025-05-30"]["done"][1]["task"]["state"] == "done"
+
+    def test_parse_filter_string(self):
+        """Test filter string parsing."""
+        # Test valid filters
+        valid, cats, tags, msg = momentum.parse_filter_string("@work,#urgent")
+        assert valid is True
+        assert cats == ["work"]
+        assert tags == ["urgent"]
+        assert msg == ""
+
+        # Test invalid filters
+        valid, cats, tags, msg = momentum.parse_filter_string("work,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Must start with @" in msg
+
+        # Test empty/invalid category
+        valid, cats, tags, msg = momentum.parse_filter_string("@,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Name cannot be empty" in msg
+
+        # Test invalid format
+        valid, cats, tags, msg = momentum.parse_filter_string("@work!,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Use letters" in msg
+
+    def test_filter_tasks_by_tags_or_categories(self):
+        """Test task filtering by tags and categories."""
+        tasks = [
+            {"task": "Task 1", "categories": ["work"], "tags": ["urgent"]},
+            {"task": "Task 2", "categories": ["personal"], "tags": ["low"]},
+            {"task": "Task 3 @work #urgent"},  # Legacy format
+            "Task 4 @personal #low",  # String format
+        ]
+
+        # Test category filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_categories=["work"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+        # Test tag filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_tags=["urgent"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+        # Test combined filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_categories=["work"], filter_tags=["urgent"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+    def test_filter_single_task_by_tags_or_categories(self):
+        """Test single task filtering by tags and categories."""
+        # Test dict format
+        task = {"task": "Task 1", "categories": ["work"], "tags": ["urgent"]}
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+        assert not momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["personal"]
+        )
+
+        # Test legacy format
+        task = {"task": "Task 2 @work #urgent"}
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+
+        # Test string format
+        task = "Task 3 @work #urgent"
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+
+    def test_validate_tag_format(self):
+        """Test tag format validation."""
+        # Valid tags
+        assert momentum.validate_tag_format("work")
+        assert momentum.validate_tag_format("work-123")
+        assert momentum.validate_tag_format("work_123")
+        assert momentum.validate_tag_format("a" * 50)  # Max length
+
+        # Invalid tags
+        assert not momentum.validate_tag_format("")  # Empty
+        assert not momentum.validate_tag_format("a" * 51)  # Too long
+        assert not momentum.validate_tag_format("work!")  # Special char
+        assert not momentum.validate_tag_format("work space")  # Space
+        assert not momentum.validate_tag_format("@work")  # @ prefix
+        assert not momentum.validate_tag_format("#work")  # # prefix
+
+    def test_extract_categories_from_tasks(self):
+        """Test category extraction from tasks."""
+        tasks = [
+            {"categories": ["work", "personal"]},  # New format
+            {"task": "Task @work @urgent"},  # Legacy format
+            {
+                "task": {"task": "Task @meeting", "categories": ["project"]}
+            },  # Nested format
+            {"task": "Task @review"},  # String format in dict
+            {},  # Empty dict
+        ]
+        categories = momentum.extract_categories_from_tasks(tasks)
+        # Convert to set for order-independent comparison
+        assert set(categories) == {
+            "work",
+            "personal",
+            "urgent",
+            "meeting",
+            "project",
+            "review",
+        }
+
+    def test_prompt_next_action(self, capsys):
+        """Test next action prompting."""
+        data = {"backlog": [{"task": "Backlog task"}]}
+
+        # Test pull from backlog
+        with patch("momentum.momentum.safe_input", return_value="p"):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "pull"
+            assert task is None
+
+        # Test add new task
+        with patch("momentum.momentum.safe_input", side_effect=["a", "New task"]):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "add"
+            assert task == "New task"
+
+        # Test skip
+        with patch("momentum.momentum.safe_input", return_value=""):
+            action, task = momentum.prompt_next_action(data)
+            assert action is None
+            assert task is None
+
+        # Test with empty backlog
+        data = {"backlog": []}
+        with patch("momentum.momentum.safe_input", side_effect=["a", "New task"]):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "add"
+            assert task == "New task"  # Should get the task back, not None
+
+    def test_create_task_data(self):
+        """Test task data creation."""
+        # Test basic task
+        task_data = momentum.create_task_data("Simple task")
+        assert task_data["task"] == "Simple task"
+        assert task_data["categories"] == []
+        assert task_data["tags"] == []
+        assert task_data["state"] == "active"
+        assert "ts" in task_data
+
+        # Test task with tags
+        task_data = momentum.create_task_data("Task @work #urgent")
+        assert task_data["task"] == "Task @work #urgent"
+        assert task_data["categories"] == ["work"]
+        assert task_data["tags"] == ["urgent"]
+        assert task_data["state"] == "active"
+
+        # Test task with multiple tags
+        task_data = momentum.create_task_data("Task @work @personal #urgent #review")
+        assert task_data["task"] == "Task @work @personal #urgent #review"
+        assert set(task_data["categories"]) == {"work", "personal"}
+        assert set(task_data["tags"]) == {"urgent", "review"}
