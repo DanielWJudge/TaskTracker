@@ -4,9 +4,9 @@ from unittest.mock import patch, MagicMock
 import json
 import sys
 import importlib
+from momentum import momentum
 
-import momentum
-from momentum import (
+from momentum.momentum import (
     cmd_add,
     cmd_done,
     cmd_status,
@@ -29,7 +29,9 @@ class TestCmdAdd:
         args.task = "Test task"
         args.store = str(temp_storage)  # Ensure cmd_add uses temp_storage
 
-        with patch("momentum.STORE", temp_storage):  # Patch STORE for momentum.load()
+        with patch(
+            "momentum.momentum.STORE", temp_storage
+        ):  # Patch STORE for momentum.load()
             cmd_add(args)
 
             # Check output
@@ -67,8 +69,8 @@ class TestCmdAdd:
         args = MagicMock()
         args.task = "New task"
         args.store = str(temp_storage)
-        with patch("momentum.safe_input", return_value="n"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="n"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_add(args)
 
@@ -79,7 +81,7 @@ class TestCmdAdd:
         updated_data = momentum.load()
         assert len(updated_data["backlog"]) == 0
 
-    @patch("momentum.save", return_value=True)
+    @patch("momentum.momentum.save", return_value=True)
     def test_add_task_when_active_task_exists_accept_backlog(
         self, mock_save, temp_storage, plain_mode, capsys
     ):
@@ -102,8 +104,8 @@ class TestCmdAdd:
         args = MagicMock()
         args.task = "New task"
         args.store = str(temp_storage)
-        with patch("momentum.safe_input", return_value="y"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="y"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_add(args)
 
@@ -152,7 +154,7 @@ class TestCmdDone:
         captured = capsys.readouterr()
         assert "No active task to complete" in captured.out
 
-    @patch("momentum.handle_next_task_selection")
+    @patch("momentum.momentum.handle_next_task_selection")
     def test_done_with_active_task(
         self, mock_handle_next, temp_storage, plain_mode, mock_datetime, capsys
     ):
@@ -167,8 +169,8 @@ class TestCmdDone:
         captured_out = ""
         today_data_after_cmd = None
 
-        with patch("momentum.today_key", return_value="2025-05-30"), patch(
-            "momentum.STORE", temp_storage
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"), patch(
+            "momentum.momentum.STORE", temp_storage
         ):  # Patch global STORE for the test's load and ensure_today
             cmd_done(args)
 
@@ -203,9 +205,11 @@ class TestCmdDone:
         args = MagicMock()
         args.store = str(temp_storage)  # Ensure cmd_done uses temp_storage
 
-        with patch("momentum.save", return_value=False), patch(
-            "momentum.handle_next_task_selection"
-        ) as mock_handle_next, patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.save", return_value=False), patch(
+            "momentum.momentum.handle_next_task_selection"
+        ) as mock_handle_next, patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
+        ):
             cmd_done(args)
 
             # With the updated code, cmd_done returns early if save fails
@@ -221,7 +225,7 @@ class TestCompleteCurrentTask:
         today = {"todo": "Test task", "done": []}
 
         with patch(
-            "momentum.today_key", return_value="2025-05-30"
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # Not strictly necessary here but good for consistency
             complete_current_task(today)
 
@@ -254,10 +258,10 @@ class TestHandleNextTaskSelection:
 
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value="2"), patch(
-            "momentum.save", return_value=True
-        ), patch("momentum.cmd_status"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="2"), patch(
+            "momentum.momentum.save", return_value=True
+        ), patch("momentum.momentum.cmd_status"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
 
             handle_next_task_selection(data, today)
@@ -269,7 +273,14 @@ class TestHandleNextTaskSelection:
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
         active_task = today["todo"]
-        assert active_task["task"] == "Second task"
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert active_task["task"] == "Second task"
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
         assert len(data["backlog"]) == 1  # one item removed
         assert data["backlog"][0]["task"] == "First task"  # correct item remained
 
@@ -281,8 +292,8 @@ class TestHandleNextTaskSelection:
         }
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value="5"), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value="5"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # invalid index
             handle_next_task_selection(data, today)
 
@@ -299,11 +310,11 @@ class TestHandleNextTaskSelection:
         today = data["2025-05-30"]
 
         with patch(
-            "momentum.safe_input", side_effect=["n", "New interactive task"]
-        ), patch("momentum.save", return_value=True), patch(
-            "momentum.cmd_status"
+            "momentum.momentum.safe_input", side_effect=["n", "New interactive task"]
+        ), patch("momentum.momentum.save", return_value=True), patch(
+            "momentum.momentum.cmd_status"
         ), patch(
-            "momentum.today_key", return_value="2025-05-30"
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
 
             handle_next_task_selection(data, today)
@@ -315,15 +326,22 @@ class TestHandleNextTaskSelection:
         # Check data was updated - now expecting structured format
         assert isinstance(today["todo"], dict)
         active_task = today["todo"]
-        assert active_task["task"] == "New interactive task"
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert active_task["task"] == "New interactive task"
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
 
     def test_skip_adding_task(self, plain_mode):
         """Test skipping task addition (empty input)."""
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value=""), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value=""), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # User presses Enter
             handle_next_task_selection(data, today)
 
@@ -335,13 +353,51 @@ class TestHandleNextTaskSelection:
         data = {"backlog": [], "2025-05-30": {"todo": None, "done": []}}
         today = data["2025-05-30"]
 
-        with patch("momentum.safe_input", return_value=None), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.safe_input", return_value=None), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):  # safe_input returns None on cancel
             handle_next_task_selection(data, today)
 
         # Check nothing was changed
         assert today["todo"] is None
+
+    def test_select_backlog_item_invalid_format(self, temp_storage, plain_mode, capsys):
+        """Test selecting backlog item with invalid format."""
+        data = {
+            "backlog": [
+                {"invalid": "format"},  # Missing task field
+                {"task": "Second task", "ts": "2025-05-30T11:00:00"},
+            ],
+            "2025-05-30": {"todo": None, "done": []},
+        }
+        today = data["2025-05-30"]
+
+        with patch("momentum.momentum.safe_input", return_value="1"), patch(
+            "momentum.momentum.save", return_value=True
+        ), patch("momentum.momentum.cmd_status"), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
+        ):
+            handle_next_task_selection(data, today)
+
+        captured = capsys.readouterr()
+        assert "Pulled from backlog:" in captured.out
+        assert "{'invalid': 'format'}" in captured.out
+
+        # Check data was updated - now expecting structured format
+        assert isinstance(today["todo"], dict)
+        active_task = today["todo"]
+        assert isinstance(
+            active_task, dict
+        ), f"today['todo'] is not a dict: {today['todo']} (type: {type(today['todo'])})"
+        try:
+            assert (
+                active_task["task"] == "{'invalid': 'format'}"
+            )  # Should be converted to string
+        except Exception:
+            print(f"active_task value: {active_task}, type: {type(active_task)}")
+            raise
+        assert len(data["backlog"]) == 1  # one item removed
+        assert data["backlog"][0]["task"] == "Second task"  # correct item remained
 
 
 class TestCmdStatus:
@@ -353,7 +409,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -371,7 +427,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -413,7 +469,7 @@ class TestCmdStatus:
         args.store = str(temp_storage)  # Ensure cmd_status uses temp_storage
         args.filter = None  # Ensure filter is None if not provided
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -434,8 +490,8 @@ class TestCmdNewday:
         today_key_val = "2025-05-30"
         loaded_data_after_cmd = None
 
-        with patch("momentum.today_key", return_value=today_key_val), patch(
-            "momentum.STORE", temp_storage
+        with patch("momentum.momentum.today_key", return_value=today_key_val), patch(
+            "momentum.momentum.STORE", temp_storage
         ):  # Patch STORE for momentum.load()
             cmd_newday(args)
             loaded_data_after_cmd = momentum.load()  # Load within patch context
@@ -453,8 +509,8 @@ class TestCmdNewday:
         args = MagicMock()
         args.store = str(temp_storage)  # Ensure cmd_newday uses temp_storage
 
-        with patch("momentum.save", return_value=False), patch(
-            "momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.save", return_value=False), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
             cmd_newday(args)
 
@@ -476,7 +532,9 @@ class TestCmdBacklog:
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
         backlog_after_cmd = None
-        with patch("momentum.STORE", temp_storage):  # Patch STORE for momentum.load()
+        with patch(
+            "momentum.momentum.STORE", temp_storage
+        ):  # Patch STORE for momentum.load()
             cmd_backlog(args)
             # Check data was saved - now expecting structured format
             data = momentum.load()  # Loads from temp_storage
@@ -559,7 +617,7 @@ class TestCmdBacklog:
         args.filter = None  # Ensure filter is None for status call
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -576,7 +634,7 @@ class TestCmdBacklog:
         args.filter = None
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -599,7 +657,7 @@ class TestCmdBacklog:
         args.filter = None
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -622,7 +680,7 @@ class TestCmdBacklog:
         args.index = 1  # remove first item (1-based)
         args.store = str(temp_storage)  # Ensure cmd_backlog uses temp_storage
 
-        with patch("momentum.save", return_value=True):
+        with patch("momentum.momentum.save", return_value=True):
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -805,16 +863,14 @@ class TestCmdCancel:
         args = MagicMock()
         args.store = str(temp_storage)
 
-        with patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
-        ):
-            reloaded_momentum_module.cmd_cancel(args)
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+            momentum.cmd_cancel(args)
 
-        with patch(f"{reloaded_momentum_module.__name__}.STORE", temp_storage), patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
+        with patch("momentum.momentum.STORE", temp_storage), patch(
+            "momentum.momentum.today_key", return_value="2025-05-30"
         ):
-            updated_data = reloaded_momentum_module.load()
-            today = reloaded_momentum_module.ensure_today(updated_data)
+            updated_data = momentum.load()
+            today = momentum.ensure_today(updated_data)
 
         captured = capsys.readouterr()
         assert "Cancelled:" in captured.out
@@ -846,20 +902,13 @@ class TestCmdCancel:
     def test_cancel_no_active_task(self, temp_storage, plain_mode, capsys):
         """Test cancelling when there is no active task."""
 
-        reloaded_momentum_module = momentum
-        if "momentum" in sys.modules:
-            importlib.reload(momentum)
-            reloaded_momentum_module = sys.modules["momentum"]
-
         data = {"2025-05-30": {"todo": None, "done": []}, "backlog": []}
         temp_storage.write_text(json.dumps(data), encoding="utf-8")
         args = MagicMock()
         args.store = str(temp_storage)
 
-        with patch(
-            f"{reloaded_momentum_module.__name__}.today_key", return_value="2025-05-30"
-        ), patch(f"{reloaded_momentum_module.__name__}.STORE", temp_storage):
-            reloaded_momentum_module.cmd_cancel(args)
+        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+            momentum.cmd_cancel(args)
 
         captured = capsys.readouterr()
         assert "No active task to cancel" in captured.out
@@ -888,7 +937,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "cancelled"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: cancelled" in captured.out
@@ -915,7 +964,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "archived"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: archived" in captured.out
@@ -942,7 +991,7 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "all"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "HISTORY: all" in captured.out
@@ -964,7 +1013,272 @@ class TestCmdHistory:
         args = MagicMock()
         args.type = "cancelled"
         args.store = str(temp_storage)
-        with patch("momentum.STORE", temp_storage):
+        with patch("momentum.momentum.STORE", temp_storage):
             momentum.cmd_history(args)
         captured = capsys.readouterr()
         assert "No matching tasks in history." in captured.out
+
+
+class TestUtilityFunctions:
+    """Test utility functions in momentum.py."""
+
+    def test_merge_and_dedup_case_insensitive(self):
+        """Test case-insensitive deduplication of lists."""
+        list1 = ["Work", "work", "Personal"]
+        list2 = ["WORK", "personal", "Urgent"]
+        result = momentum.merge_and_dedup_case_insensitive(list1, list2)
+        assert len(result) == 3
+        assert "Work" in result  # Preserves first occurrence's case
+        assert "Personal" in result
+        assert "Urgent" in result
+
+    def test_safe_print_unicode_error(self, capsys):
+        """Test safe_print handling of Unicode errors."""
+        # Create a string that will cause UnicodeEncodeError
+        text = "Hello \u2022 World"  # Bullet point character
+        with patch("builtins.print") as mock_print:
+
+            def side_effect(*args, **kwargs):
+                if args[0] == text:
+                    raise UnicodeEncodeError(
+                        "ascii", text, 0, 1, "ordinal not in range(128)"
+                    )
+                return None
+
+            mock_print.side_effect = side_effect
+            momentum.safe_print(text)
+            # Verify the fallback print was called with ASCII-safe version
+            mock_print.assert_any_call("Hello ? World")
+
+    def test_safe_int_input_validation(self, capsys):
+        """Test safe_int_input validation."""
+        with patch("builtins.input", side_effect=["abc", "0", "15", "10"]):
+            # Test invalid input
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "Invalid input" in captured.out
+
+            # Test below min
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "must be at least" in captured.out
+
+            # Test above max
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result is None
+            captured = capsys.readouterr()
+            assert "must be at most" in captured.out
+
+            # Test valid input
+            result = momentum.safe_int_input("Enter number: ", min_val=1, max_val=10)
+            assert result == 10
+
+    def test_migrate_task_data(self):
+        """Test task data migration."""
+        data = {
+            "backlog": [
+                {"task": "Task 1"},  # Missing state
+                {"task": "Task 2", "state": "active"},  # Has state
+            ],
+            "2025-05-30": {
+                "todo": {"task": "Active task"},  # Missing state
+                "done": [
+                    {"task": {"task": "Done task"}},  # Missing state
+                    {"task": {"task": "Done task 2", "state": "done"}},  # Has state
+                ],
+            },
+        }
+        migrated = momentum.migrate_task_data(data)
+        assert migrated is True
+        assert data["backlog"][0]["state"] == "active"
+        assert data["backlog"][1]["state"] == "active"
+        assert data["2025-05-30"]["todo"]["state"] == "active"
+        assert data["2025-05-30"]["done"][0]["task"]["state"] == "done"
+        assert data["2025-05-30"]["done"][1]["task"]["state"] == "done"
+
+    def test_parse_filter_string(self):
+        """Test filter string parsing."""
+        # Test valid filters
+        valid, cats, tags, msg = momentum.parse_filter_string("@work,#urgent")
+        assert valid is True
+        assert cats == ["work"]
+        assert tags == ["urgent"]
+        assert msg == ""
+
+        # Test invalid filters
+        valid, cats, tags, msg = momentum.parse_filter_string("work,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Must start with @" in msg
+
+        # Test empty/invalid category
+        valid, cats, tags, msg = momentum.parse_filter_string("@,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Name cannot be empty" in msg
+
+        # Test invalid format
+        valid, cats, tags, msg = momentum.parse_filter_string("@work!,#urgent")
+        assert valid is False
+        assert cats == []
+        assert tags == ["urgent"]
+        assert "Use letters" in msg
+
+    def test_filter_tasks_by_tags_or_categories(self):
+        """Test task filtering by tags and categories."""
+        tasks = [
+            {"task": "Task 1", "categories": ["work"], "tags": ["urgent"]},
+            {"task": "Task 2", "categories": ["personal"], "tags": ["low"]},
+            {"task": "Task 3 @work #urgent"},  # Legacy format
+            "Task 4 @personal #low",  # String format
+        ]
+
+        # Test category filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_categories=["work"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+        # Test tag filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_tags=["urgent"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+        # Test combined filter
+        filtered = momentum.filter_tasks_by_tags_or_categories(
+            tasks, filter_categories=["work"], filter_tags=["urgent"]
+        )
+        assert len(filtered) == 2
+        assert any(t.get("task") == "Task 1" for t in filtered)
+        assert any("Task 3" in str(t) for t in filtered)
+
+    def test_filter_single_task_by_tags_or_categories(self):
+        """Test single task filtering by tags and categories."""
+        # Test dict format
+        task = {"task": "Task 1", "categories": ["work"], "tags": ["urgent"]}
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+        assert not momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["personal"]
+        )
+
+        # Test legacy format
+        task = {"task": "Task 2 @work #urgent"}
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+
+        # Test string format
+        task = "Task 3 @work #urgent"
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_categories=["work"]
+        )
+        assert momentum.filter_single_task_by_tags_or_categories(
+            task, filter_tags=["urgent"]
+        )
+
+    def test_validate_tag_format(self):
+        """Test tag format validation."""
+        # Valid tags
+        assert momentum.validate_tag_format("work")
+        assert momentum.validate_tag_format("work-123")
+        assert momentum.validate_tag_format("work_123")
+        assert momentum.validate_tag_format("a" * 50)  # Max length
+
+        # Invalid tags
+        assert not momentum.validate_tag_format("")  # Empty
+        assert not momentum.validate_tag_format("a" * 51)  # Too long
+        assert not momentum.validate_tag_format("work!")  # Special char
+        assert not momentum.validate_tag_format("work space")  # Space
+        assert not momentum.validate_tag_format("@work")  # @ prefix
+        assert not momentum.validate_tag_format("#work")  # # prefix
+
+    def test_extract_categories_from_tasks(self):
+        """Test category extraction from tasks."""
+        tasks = [
+            {"categories": ["work", "personal"]},  # New format
+            {"task": "Task @work @urgent"},  # Legacy format
+            {
+                "task": {"task": "Task @meeting", "categories": ["project"]}
+            },  # Nested format
+            {"task": "Task @review"},  # String format in dict
+            {},  # Empty dict
+        ]
+        categories = momentum.extract_categories_from_tasks(tasks)
+        # Convert to set for order-independent comparison
+        assert set(categories) == {
+            "work",
+            "personal",
+            "urgent",
+            "meeting",
+            "project",
+            "review",
+        }
+
+    def test_prompt_next_action(self, capsys):
+        """Test next action prompting."""
+        data = {"backlog": [{"task": "Backlog task"}]}
+
+        # Test pull from backlog
+        with patch("momentum.momentum.safe_input", return_value="p"):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "pull"
+            assert task is None
+
+        # Test add new task
+        with patch("momentum.momentum.safe_input", side_effect=["a", "New task"]):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "add"
+            assert task == "New task"
+
+        # Test skip
+        with patch("momentum.momentum.safe_input", return_value=""):
+            action, task = momentum.prompt_next_action(data)
+            assert action is None
+            assert task is None
+
+        # Test with empty backlog
+        data = {"backlog": []}
+        with patch("momentum.momentum.safe_input", side_effect=["a", "New task"]):
+            action, task = momentum.prompt_next_action(data)
+            assert action == "add"
+            assert task == "New task"  # Should get the task back, not None
+
+    def test_create_task_data(self):
+        """Test task data creation."""
+        # Test basic task
+        task_data = momentum.create_task_data("Simple task")
+        assert task_data["task"] == "Simple task"
+        assert task_data["categories"] == []
+        assert task_data["tags"] == []
+        assert task_data["state"] == "active"
+        assert "ts" in task_data
+
+        # Test task with tags
+        task_data = momentum.create_task_data("Task @work #urgent")
+        assert task_data["task"] == "Task @work #urgent"
+        assert task_data["categories"] == ["work"]
+        assert task_data["tags"] == ["urgent"]
+        assert task_data["state"] == "active"
+
+        # Test task with multiple tags
+        task_data = momentum.create_task_data("Task @work @personal #urgent #review")
+        assert task_data["task"] == "Task @work @personal #urgent #review"
+        assert set(task_data["categories"]) == {"work", "personal"}
+        assert set(task_data["tags"]) == {"urgent", "review"}

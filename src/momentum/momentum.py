@@ -666,12 +666,21 @@ def extract_categories_from_tasks(tasks: List[dict]) -> List[str]:
     """Extract all unique categories from a list of tasks."""
     categories = set()
     for task in tasks:
-        if isinstance(task, dict) and "categories" in task:
-            categories.update(task["categories"])
-        elif isinstance(task, dict) and "task" in task:
-            # Handle legacy tasks without category field
-            _, cats, _ = parse_tags(task["task"])
-            categories.update(cats)
+        if isinstance(task, dict):
+            if "categories" in task:
+                categories.update(task["categories"])
+            if "task" in task:
+                if isinstance(task["task"], dict):
+                    # Handle nested task dictionary
+                    if "categories" in task["task"]:
+                        categories.update(task["task"]["categories"])
+                    if "task" in task["task"]:
+                        _, cats, _ = parse_tags(task["task"]["task"])
+                        categories.update(cats)
+                else:
+                    # Handle legacy tasks without category field
+                    _, cats, _ = parse_tags(task["task"])
+                    categories.update(cats)
     return sorted(list(categories))
 
 

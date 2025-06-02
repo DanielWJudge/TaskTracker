@@ -7,10 +7,7 @@ import tempfile
 import shutil
 
 # Import the module under test
-import sys
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-import momentum
+from momentum import momentum
 
 
 @pytest.fixture
@@ -69,7 +66,7 @@ def plain_mode():
 @pytest.fixture
 def mock_datetime():
     """Mock datetime.now() for consistent timestamps."""
-    with patch("momentum.datetime") as mock_dt:
-        mock_dt.now.return_value.isoformat.return_value = "2025-05-30T12:00:00"
-        mock_dt.now.return_value.time.return_value.isoformat.return_value = "12:00:00"
+    with patch("momentum.momentum.datetime") as mock_dt:
+        mock_now = mock_dt.now.return_value
+        mock_now.isoformat.return_value = "2025-05-30T12:00:00"
         yield mock_dt

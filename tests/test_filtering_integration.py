@@ -18,7 +18,9 @@ class TestCategoryFilteringIntegration:
         temp_path = Path(temp_dir)
 
         # Copy momentum.py to temp directory
-        original_momentum = Path(__file__).parent.parent / "momentum.py"
+        original_momentum = (
+            Path(__file__).parent.parent / "src" / "momentum" / "momentum.py"
+        )
         temp_momentum = temp_path / "momentum.py"
         shutil.copy2(original_momentum, temp_momentum)
 
