@@ -3,15 +3,19 @@
 import time
 import signal
 import sys
+from .display import print_timer_status
 
 
 class PomodoroTimer:
-    def __init__(self, work_minutes: int, break_minutes: int = 5):
+    def __init__(
+        self, work_minutes: int, break_minutes: int = 5, plain_mode: bool = False
+    ):
         self.work_duration = work_minutes * 60
         self.break_duration = break_minutes * 60
         self.is_running = False
         self.current_phase = "work"  # "work" or "break"
         self.time_remaining = self.work_duration
+        self.plain_mode = plain_mode
 
     def start(self):
         """Start the timer with basic output."""
@@ -27,22 +31,21 @@ class PomodoroTimer:
     def _run_work_session(self):
         """Run work session with basic countdown."""
         print(f"🍅 WORK SESSION ({self.work_duration // 60} minutes)")
-        self._countdown(self.work_duration)
+        self._countdown(self.work_duration, "work")
         print("\n✅ Work session complete!")
 
     def _run_break_session(self):
         """Run break session with basic countdown."""
         print(f"☕ BREAK TIME ({self.break_duration // 60} minutes)")
-        self._countdown(self.break_duration)
+        self._countdown(self.break_duration, "break")
         print("\n🎉 Break complete!")
 
-    def _countdown(self, duration: int):
-        """Simple countdown with basic display."""
+    def _countdown(self, duration: int, phase: str):
+        """Enhanced countdown with progress bar."""
         for remaining in range(duration, 0, -1):
-            minutes = remaining // 60
-            seconds = remaining % 60
-            print(f"\r{minutes:02d}:{seconds:02d} remaining", end="", flush=True)
+            print_timer_status(phase, remaining, duration, self.plain_mode)
             time.sleep(1)
+        print()  # New line after completion
 
     def _handle_cancel(self, signum, frame):
         """Handle timer cancellation."""

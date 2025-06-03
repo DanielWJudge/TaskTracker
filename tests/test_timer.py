@@ -24,10 +24,10 @@ class TestPomodoroTimer:
     def test_countdown_display(self, mock_print, mock_sleep):
         """Test countdown displays correct format."""
         timer = PomodoroTimer(1)  # 1 minute
-        timer._countdown(3)  # 3 seconds
+        timer._countdown(3, "work")  # 3 seconds, work phase
 
-        # Should print 00:03, 00:02, 00:01
-        assert mock_print.call_count == 3
+        # Should print 00:03, 00:02, 00:01, and a newline, plus clear_line prints
+        assert mock_print.call_count == 7
         mock_sleep.assert_called_with(1)
 
     def test_cmd_timer_args(self):
