@@ -3,7 +3,7 @@
 import pytest
 import json
 from unittest.mock import MagicMock, patch
-from momentum.momentum import (
+from momentum.cli import (
     parse_filter_string,
     filter_tasks_by_tags_or_categories,
     filter_single_task_by_tags_or_categories,
@@ -684,7 +684,7 @@ class TestStatusCommandFiltering:
             filter="@work", store=str(temp_storage), plain=True, func=cmd_status
         )
 
-        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.cli.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -731,7 +731,7 @@ class TestStatusCommandFiltering:
             filter="#urgent", store=str(temp_storage), plain=True, func=cmd_status
         )
 
-        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.cli.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -787,7 +787,7 @@ class TestStatusCommandFiltering:
             filter="@work,#urgent", store=str(temp_storage), plain=True, func=cmd_status
         )
 
-        with patch("momentum.momentum.today_key", return_value="2025-05-30"):
+        with patch("momentum.cli.today_key", return_value="2025-05-30"):
             cmd_status(args)
 
         captured = capsys.readouterr()
@@ -820,8 +820,8 @@ class TestStatusCommandFiltering:
         args.store = str(temp_storage)  # Ensure temp_storage is used
         args.plain = True  # Explicitly set for consistent output testing
 
-        with patch("momentum.momentum.STORE", temp_storage), patch(
-            "momentum.momentum.today_key", return_value="2025-05-30"
+        with patch("momentum.cli.STORE", temp_storage), patch(
+            "momentum.cli.today_key", return_value="2025-05-30"
         ):  # Patch STORE and today_key
             cmd_status(args)
 
@@ -868,7 +868,7 @@ class TestBacklogCommandFiltering:
         args.store = str(temp_storage)  # Ensure temp_storage is used
         args.plain = True  # Explicitly set
 
-        with patch("momentum.momentum.STORE", temp_storage):  # Patch STORE
+        with patch("momentum.cli.STORE", temp_storage):  # Patch STORE
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -900,7 +900,7 @@ class TestBacklogCommandFiltering:
         args.store = str(temp_storage)  # Ensure temp_storage is used
         args.plain = True  # Explicitly set
 
-        with patch("momentum.momentum.STORE", temp_storage):  # Patch STORE
+        with patch("momentum.cli.STORE", temp_storage):  # Patch STORE
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -923,7 +923,7 @@ class TestBacklogCommandFiltering:
             encoding="utf-8",
         )
 
-        with patch("momentum.momentum.STORE", temp_storage):  # Patch STORE
+        with patch("momentum.cli.STORE", temp_storage):  # Patch STORE
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -966,7 +966,7 @@ class TestBacklogCommandFiltering:
         args.store = str(temp_storage)  # Ensure temp_storage is used
         args.plain = True  # Explicitly set
 
-        with patch("momentum.momentum.STORE", temp_storage):  # Patch STORE
+        with patch("momentum.cli.STORE", temp_storage):  # Patch STORE
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -997,7 +997,7 @@ class TestBacklogCommandFiltering:
         args.store = str(temp_storage)  # Ensure temp_storage is used
         args.plain = True  # Explicitly set
 
-        with patch("momentum.momentum.STORE", temp_storage):  # Patch STORE
+        with patch("momentum.cli.STORE", temp_storage):  # Patch STORE
             cmd_backlog(args)
 
         captured = capsys.readouterr()
@@ -1021,7 +1021,7 @@ class TestFilteringEdgeCases:
         temp_storage.write_text(json.dumps(initial_data), encoding="utf-8")
 
         with patch(
-            "momentum.momentum.STORE", temp_storage
+            "momentum.cli.STORE", temp_storage
         ):  # Patch STORE for momentum.load()
             cmd_backlog(args)
 
@@ -1096,7 +1096,7 @@ def temp_storage(tmp_path):
 
 @pytest.fixture
 def plain_mode(monkeypatch):
-    monkeypatch.setattr("momentum.momentum.USE_PLAIN", True)
+    monkeypatch.setattr("momentum.cli.USE_PLAIN", True)
 
 
 # Helper to create a mock args object

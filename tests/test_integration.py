@@ -13,33 +13,31 @@ class TestCLIIntegration:
 
     @pytest.fixture
     def temp_project_dir(self):
-        """Create a temporary directory with momentum.py for testing."""
+        """Create a temporary directory with cli.py for testing."""
         temp_dir = tempfile.mkdtemp()
         temp_path = Path(temp_dir)
 
-        # Copy momentum.py to temp directory
-        original_momentum = (
-            Path(__file__).parent.parent / "src" / "momentum" / "momentum.py"
-        )
-        temp_momentum = temp_path / "momentum.py"
-        shutil.copy2(original_momentum, temp_momentum)
+        # Copy cli.py to temp directory
+        original_cli = Path(__file__).parent.parent / "src" / "momentum" / "cli.py"
+        temp_cli = temp_path / "cli.py"
+        shutil.copy2(original_cli, temp_cli)
 
         # Create temp storage file path
         temp_storage = temp_path / "test_storage.json"
 
-        yield temp_path, temp_momentum, temp_storage
+        yield temp_path, temp_cli, temp_storage
 
         # Cleanup
         shutil.rmtree(temp_dir)
 
-    def run_cli(self, temp_momentum, temp_storage, command, stdin_input=None):
+    def run_cli(self, temp_cli, temp_storage, command, stdin_input=None):
         """Helper to run CLI commands and return result."""
         # Handle quoted arguments properly for Windows
         if "add '" in command or "backlog add '" in command:
             # Split manually to preserve quoted strings
             parts = [
                 "python",
-                str(temp_momentum),
+                str(temp_cli),
                 "--plain",
                 "--store",
                 str(temp_storage),
@@ -58,7 +56,7 @@ class TestCLIIntegration:
         else:
             parts = [
                 "python",
-                str(temp_momentum),
+                str(temp_cli),
                 "--plain",
                 "--store",
                 str(temp_storage),
@@ -93,10 +91,10 @@ class TestBasicWorkflows(TestCLIIntegration):
 
     def test_new_day_workflow(self, temp_project_dir):
         """Test initializing a new day."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Initialize new day
-        result = self.run_cli(temp_momentum, temp_storage, "newday")
+        result = self.run_cli(temp_cli, temp_storage, "newday")
         assert result.returncode == 0
         assert "New day initialized" in result.stdout
 
@@ -108,12 +106,10 @@ class TestBasicWorkflows(TestCLIIntegration):
 
     def test_add_task_workflow(self, temp_project_dir):
         """Test adding a task."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add a task
-        result = self.run_cli(
-            temp_momentum, temp_storage, "add 'Write integration tests'"
-        )
+        result = self.run_cli(temp_cli, temp_storage, "add 'Write integration tests'")
         assert result.returncode == 0
         assert "Added:" in result.stdout
         assert "Write integration tests" in result.stdout
@@ -130,30 +126,30 @@ class TestBasicWorkflows(TestCLIIntegration):
 
     def test_status_workflow(self, temp_project_dir):
         """Test status display."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Start with empty status
-        result = self.run_cli(temp_momentum, temp_storage, "status")
+        result = self.run_cli(temp_cli, temp_storage, "status")
         assert result.returncode == 0
         assert "=== TODAY:" in result.stdout
         assert "No completed tasks yet." in result.stdout
         assert "TBD" in result.stdout
 
         # Add a task and check status
-        self.run_cli(temp_momentum, temp_storage, "add 'Test task'")
-        result = self.run_cli(temp_momentum, temp_storage, "status")
+        self.run_cli(temp_cli, temp_storage, "add 'Test task'")
+        result = self.run_cli(temp_cli, temp_storage, "status")
         assert result.returncode == 0
         assert "Test task" in result.stdout
         assert "TBD" not in result.stdout  # should show actual task
 
     def test_complete_task_workflow(self, temp_project_dir):
         """Test completing a task with no next action."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add and complete a task
-        self.run_cli(temp_momentum, temp_storage, "add 'Complete this task'")
+        self.run_cli(temp_cli, temp_storage, "add 'Complete this task'")
         result = self.run_cli(
-            temp_momentum, temp_storage, "done", stdin_input="\n"
+            temp_cli, temp_storage, "done", stdin_input="\n"
         )  # Skip next action
 
         assert result.returncode == 0
@@ -178,23 +174,19 @@ class TestBacklogWorkflows(TestCLIIntegration):
 
     def test_backlog_add_list_workflow(self, temp_project_dir):
         """Test adding to and listing backlog."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add items to backlog
-        result = self.run_cli(
-            temp_momentum, temp_storage, "backlog add 'Future task 1'"
-        )
+        result = self.run_cli(temp_cli, temp_storage, "backlog add 'Future task 1'")
         assert result.returncode == 0
         assert "Backlog task added:" in result.stdout
         assert "Future task 1" in result.stdout
 
-        result = self.run_cli(
-            temp_momentum, temp_storage, "backlog add 'Future task 2'"
-        )
+        result = self.run_cli(temp_cli, temp_storage, "backlog add 'Future task 2'")
         assert result.returncode == 0
 
         # List backlog
-        result = self.run_cli(temp_momentum, temp_storage, "backlog list")
+        result = self.run_cli(temp_cli, temp_storage, "backlog list")
         assert result.returncode == 0
         assert "Backlog:" in result.stdout
         assert "1. Future task 1" in result.stdout
@@ -208,14 +200,14 @@ class TestBacklogWorkflows(TestCLIIntegration):
 
     def test_backlog_pull_workflow(self, temp_project_dir):
         """Test pulling from backlog."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add backlog items
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Backlog task 1'")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Backlog task 2'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Backlog task 1'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Backlog task 2'")
 
         # Pull first item
-        result = self.run_cli(temp_momentum, temp_storage, "backlog pull")
+        result = self.run_cli(temp_cli, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "Pulled from backlog:" in result.stdout
         assert "Backlog task 1" in result.stdout
@@ -233,15 +225,15 @@ class TestBacklogWorkflows(TestCLIIntegration):
 
     def test_backlog_remove_workflow(self, temp_project_dir):
         """Test removing from backlog."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add backlog items
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Keep this'")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Remove this'")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Keep this too'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Keep this'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Remove this'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Keep this too'")
 
         # Remove middle item
-        result = self.run_cli(temp_momentum, temp_storage, "backlog remove 2")
+        result = self.run_cli(temp_cli, temp_storage, "backlog remove 2")
         assert result.returncode == 0
         assert "Removed from backlog:" in result.stdout
         assert "Remove this" in result.stdout
@@ -258,30 +250,30 @@ class TestComplexWorkflows(TestCLIIntegration):
 
     def test_full_task_lifecycle(self, temp_project_dir):
         """Test complete task lifecycle with backlog interaction."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # 1. Initialize day
-        result = self.run_cli(temp_momentum, temp_storage, "newday")
+        result = self.run_cli(temp_cli, temp_storage, "newday")
         assert result.returncode == 0
 
         # 2. Add backlog items for later
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Future task A'")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Future task B'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Future task A'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Future task B'")
 
         # 3. Add active task
-        result = self.run_cli(temp_momentum, temp_storage, "add 'Current task'")
+        result = self.run_cli(temp_cli, temp_storage, "add 'Current task'")
         assert result.returncode == 0
 
         # 4. Try to add another task (should offer backlog)
         result = self.run_cli(
-            temp_momentum, temp_storage, "add 'Another task'", stdin_input="y\n"
+            temp_cli, temp_storage, "add 'Another task'", stdin_input="y\n"
         )
         assert result.returncode == 0
         assert "Active task already exists" in result.stdout
         assert "Added to backlog:" in result.stdout
 
         # 5. Complete current task and pull from backlog
-        result = self.run_cli(temp_momentum, temp_storage, "done", stdin_input="1\n")
+        result = self.run_cli(temp_cli, temp_storage, "done", stdin_input="1\n")
         assert result.returncode == 0
         assert "Completed:" in result.stdout
         assert "Current task" in result.stdout
@@ -315,12 +307,12 @@ class TestComplexWorkflows(TestCLIIntegration):
 
     def test_interactive_done_workflow_new_task(self, temp_project_dir):
         """Test completing task and adding new task interactively."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add and complete task, then add new one
-        self.run_cli(temp_momentum, temp_storage, "add 'First task'")
+        self.run_cli(temp_cli, temp_storage, "add 'First task'")
         result = self.run_cli(
-            temp_momentum, temp_storage, "done", stdin_input="n\nSecond task\n"
+            temp_cli, temp_storage, "done", stdin_input="n\nSecond task\n"
         )
 
         assert result.returncode == 0
@@ -341,12 +333,12 @@ class TestComplexWorkflows(TestCLIIntegration):
 
     def test_multiple_day_persistence(self, temp_project_dir):
         """Test that backlog persists across days."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Day 1: Add backlog items
-        self.run_cli(temp_momentum, temp_storage, "newday")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Persistent task 1'")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Persistent task 2'")
+        self.run_cli(temp_cli, temp_storage, "newday")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Persistent task 1'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Persistent task 2'")
 
         # Simulate new day by directly modifying storage to have different date
         data = self.load_storage(temp_storage)
@@ -355,13 +347,13 @@ class TestComplexWorkflows(TestCLIIntegration):
         temp_storage.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
         # Day 2: Check backlog still exists
-        result = self.run_cli(temp_momentum, temp_storage, "backlog list")
+        result = self.run_cli(temp_cli, temp_storage, "backlog list")
         assert result.returncode == 0
         assert "Persistent task 1" in result.stdout
         assert "Persistent task 2" in result.stdout
 
         # Should be able to pull from previous day's backlog
-        result = self.run_cli(temp_momentum, temp_storage, "backlog pull")
+        result = self.run_cli(temp_cli, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "Pulled from backlog:" in result.stdout
 
@@ -371,64 +363,64 @@ class TestErrorHandling(TestCLIIntegration):
 
     def test_invalid_commands(self, temp_project_dir):
         """Test handling of invalid CLI commands."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Invalid main command
-        result = self.run_cli(temp_momentum, temp_storage, "invalid_command")
+        result = self.run_cli(temp_cli, temp_storage, "invalid_command")
         assert result.returncode != 0
 
         # Invalid backlog subcommand
-        result = self.run_cli(temp_momentum, temp_storage, "backlog invalid_sub")
+        result = self.run_cli(temp_cli, temp_storage, "backlog invalid_sub")
         assert result.returncode != 0
 
     def test_empty_operations(self, temp_project_dir):
         """Test operations on empty state."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Try to complete when no active task
-        result = self.run_cli(temp_momentum, temp_storage, "done")
+        result = self.run_cli(temp_cli, temp_storage, "done")
         assert result.returncode == 0
         assert "No active task to complete" in result.stdout
 
         # Try to pull from empty backlog
-        result = self.run_cli(temp_momentum, temp_storage, "backlog pull")
+        result = self.run_cli(temp_cli, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "No backlog items to pull" in result.stdout
 
         # List empty backlog
-        result = self.run_cli(temp_momentum, temp_storage, "backlog list")
+        result = self.run_cli(temp_cli, temp_storage, "backlog list")
         assert result.returncode == 0
         assert "Backlog:" in result.stdout
 
     def test_invalid_indices(self, temp_project_dir):
         """Test handling of invalid backlog indices."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add one item
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Only item'")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Only item'")
 
         # Try invalid remove index
-        result = self.run_cli(temp_momentum, temp_storage, "backlog remove 5")
+        result = self.run_cli(temp_cli, temp_storage, "backlog remove 5")
         assert result.returncode == 0
         assert "Invalid backlog index" in result.stdout
 
         # Try remove from empty after removing only item
-        self.run_cli(temp_momentum, temp_storage, "backlog remove 1")
-        result = self.run_cli(temp_momentum, temp_storage, "backlog remove 1")
+        self.run_cli(temp_cli, temp_storage, "backlog remove 1")
+        result = self.run_cli(temp_cli, temp_storage, "backlog remove 1")
         assert result.returncode == 0
         # The code now properly shows "No backlog items to remove" for empty backlog
         assert "No backlog items to remove" in result.stdout
 
     def test_concurrent_active_task_handling(self, temp_project_dir):
         """Test handling when trying to add task while one exists."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Add first task
-        self.run_cli(temp_momentum, temp_storage, "add 'First task'")
+        self.run_cli(temp_cli, temp_storage, "add 'First task'")
 
         # Try to add second task, decline backlog
         result = self.run_cli(
-            temp_momentum, temp_storage, "add 'Second task'", stdin_input="n\n"
+            temp_cli, temp_storage, "add 'Second task'", stdin_input="n\n"
         )
         assert result.returncode == 0
         assert "Active task already exists" in result.stdout
@@ -443,8 +435,8 @@ class TestErrorHandling(TestCLIIntegration):
             assert "First task" in todo_task
 
         # Try to pull when active task exists
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Backlog item'")
-        result = self.run_cli(temp_momentum, temp_storage, "backlog pull")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Backlog item'")
+        result = self.run_cli(temp_cli, temp_storage, "backlog pull")
         assert result.returncode == 0
         assert "Active task already exists" in result.stdout
 
@@ -454,13 +446,13 @@ class TestDataPersistence(TestCLIIntegration):
 
     def test_storage_file_creation(self, temp_project_dir):
         """Test that storage file is created properly."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Initially no storage file
         assert not temp_storage.exists()
 
         # First command should create it
-        result = self.run_cli(temp_momentum, temp_storage, "newday")
+        result = self.run_cli(temp_cli, temp_storage, "newday")
         assert result.returncode == 0
         assert temp_storage.exists()
 
@@ -471,13 +463,13 @@ class TestDataPersistence(TestCLIIntegration):
 
     def test_data_structure_integrity(self, temp_project_dir):
         """Test that data structure remains consistent."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Perform various operations
-        self.run_cli(temp_momentum, temp_storage, "newday")
-        self.run_cli(temp_momentum, temp_storage, "backlog add 'Test task'")
-        self.run_cli(temp_momentum, temp_storage, "add 'Active task'")
-        self.run_cli(temp_momentum, temp_storage, "done", stdin_input="\n")
+        self.run_cli(temp_cli, temp_storage, "newday")
+        self.run_cli(temp_cli, temp_storage, "backlog add 'Test task'")
+        self.run_cli(temp_cli, temp_storage, "add 'Active task'")
+        self.run_cli(temp_cli, temp_storage, "done", stdin_input="\n")
 
         # Verify data structure
         data = self.load_storage(temp_storage)
@@ -504,12 +496,12 @@ class TestDataPersistence(TestCLIIntegration):
 
     def test_plain_mode_consistency(self, temp_project_dir):
         """Test that plain mode produces consistent output."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Use ASCII-only task names to avoid Unicode issues in Windows CMD
-        self.run_cli(temp_momentum, temp_storage, "newday")
-        self.run_cli(temp_momentum, temp_storage, "add 'Test with ASCII only'")
-        result = self.run_cli(temp_momentum, temp_storage, "status")
+        self.run_cli(temp_cli, temp_storage, "newday")
+        self.run_cli(temp_cli, temp_storage, "add 'Test with ASCII only'")
+        result = self.run_cli(temp_cli, temp_storage, "status")
 
         assert result.returncode == 0
         # In plain mode, should not contain emoji characters in output formatting
@@ -527,7 +519,7 @@ class TestCommandLineArgs(TestCLIIntegration):
 
     def test_custom_storage_path(self, temp_project_dir):
         """Test using custom storage file path."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Use different storage file
         custom_storage = temp_path / "custom_storage.json"
@@ -535,7 +527,7 @@ class TestCommandLineArgs(TestCLIIntegration):
         result = subprocess.run(
             [
                 "python",
-                str(temp_momentum),
+                str(temp_cli),
                 "--plain",
                 "--store",
                 str(custom_storage),
@@ -551,12 +543,12 @@ class TestCommandLineArgs(TestCLIIntegration):
 
     def test_plain_mode_flag(self, temp_project_dir):
         """Test that --plain flag works."""
-        temp_path, temp_momentum, temp_storage = temp_project_dir
+        temp_path, temp_cli, temp_storage = temp_project_dir
 
         # Without --plain (though our helper always uses it)
         # Test by running without our helper
         result = subprocess.run(
-            ["python", str(temp_momentum), "--store", str(temp_storage), "newday"],
+            ["python", str(temp_cli), "--store", str(temp_storage), "newday"],
             capture_output=True,
             text=True,
         )
