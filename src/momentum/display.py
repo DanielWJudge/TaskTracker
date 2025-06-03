@@ -6,7 +6,7 @@ def create_progress_bar(
 ) -> str:
     """Create a progress bar string."""
     if total == 0:
-        percentage = 0
+        percentage = 0.0
     else:
         percentage = (total - current) / total
 
