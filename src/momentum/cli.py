@@ -7,10 +7,10 @@ active task at a time. Features a persistent backlog, interactive prompts,
 and clean status displays with optional emoji/color output.
 
 Usage:
-    python momentum.py add "Task description"
-    python momentum.py done
-    python momentum.py backlog add "Future task"
-    python momentum.py status
+    python cli.py add "Task description"
+    python cli.py done
+    python cli.py backlog add "Future task"
+    python cli.py status
 """
 
 import argparse
@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 from datetime import date
 from pathlib import Path
+from momentum.timer import cmd_timer
 import os
 
 
@@ -1574,6 +1575,18 @@ def build_parser():
     b_cancel = b_sub.add_parser("cancel", help="Cancel a backlog item by index")
     b_cancel.add_argument("index", type=int, help="1-based index of item to cancel")
     b_cancel.set_defaults(func=cmd_backlog)
+
+    # Add Pomodoro timer sub-command
+    timer_parser = sub.add_parser("timer", help="Start Pomodoro timer")
+    timer_parser.add_argument("work_minutes", type=int, help="Work duration in minutes")
+    timer_parser.add_argument(
+        "break_minutes",
+        type=int,
+        nargs="?",
+        default=5,
+        help="Break duration in minutes (default: 5)",
+    )
+    timer_parser.set_defaults(func=cmd_timer)
 
     return p
 

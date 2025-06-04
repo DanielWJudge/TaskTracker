@@ -2,16 +2,18 @@
 
 from unittest.mock import patch
 from datetime import datetime
+import momentum.cli
 
-from momentum import momentum
-from momentum.momentum import (
+from momentum.cli import (
     format_backlog_timestamp,
     print_backlog_list,
-    style,
-    emoji,
     today_key,
     Config,
+    USE_PLAIN,
 )
+
+# Store original USE_PLAIN value to restore after tests
+_original_use_plain = USE_PLAIN
 
 
 class TestFormatBacklogTimestamp:
@@ -168,48 +170,44 @@ class TestStyleFunction:
 
     def test_style_with_plain_mode_disabled(self):
         """Test style function when plain mode is disabled."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = style("\033[92m")  # green color code
+            result = momentum.cli.style("\033[92m")  # green color code
             assert result == "\033[92m"
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_style_with_plain_mode_enabled(self):
         """Test style function when plain mode is enabled."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = True
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = True
         try:
-            result = style("\033[92m")  # green color code
+            result = momentum.cli.style("\033[92m")  # green color code
             assert result == ""  # should return empty string
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_style_with_empty_string(self):
         """Test style function with empty string."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = style("")
+            result = momentum.cli.style("")
             assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_style_with_none(self):
         """Test style function with None input."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = style(None)
+            result = momentum.cli.style(None)
             # The updated style function handles None gracefully and returns empty string
             assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
 
 class TestEmojiFunction:
@@ -217,100 +215,87 @@ class TestEmojiFunction:
 
     def test_emoji_with_plain_mode_disabled(self):
         """Test emoji function when plain mode is disabled."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = emoji("added")
+            result = momentum.cli.emoji("added")
             assert result == "✅"
 
-            result = emoji("complete")
+            result = momentum.cli.emoji("complete")
             assert result == "🎉"
 
-            result = emoji("error")
+            result = momentum.cli.emoji("error")
             assert result == "❌"
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_emoji_with_plain_mode_enabled(self):
         """Test emoji function when plain mode is enabled."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = True
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = True
         try:
-            result = emoji("added")
+            result = momentum.cli.emoji("added")
             assert result == ""
 
-            result = emoji("complete")
+            result = momentum.cli.emoji("complete")
             assert result == ""
 
-            result = emoji("error")
+            result = momentum.cli.emoji("error")
             assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_emoji_with_unknown_key(self):
         """Test emoji function with unknown key."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = emoji("unknown_key")
-            assert result == ""  # should return empty string for unknown keys
+            result = momentum.cli.emoji("unknown_key")
+            assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_emoji_with_empty_key(self):
         """Test emoji function with empty key."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = emoji("")
+            result = momentum.cli.emoji("")
             assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_emoji_with_none_key(self):
         """Test emoji function with None key."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            result = emoji(None)
-            assert result == ""  # .get(None, "") should return ""
+            result = momentum.cli.emoji(None)
+            assert result == ""
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
     def test_all_emoji_keys(self):
         """Test all defined emoji keys."""
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
+        momentum.cli.USE_PLAIN = False
         try:
-            expected_emojis = {
-                "added": "✅",
-                "complete": "🎉",
-                "backlog_add": "📥",
-                "backlog_list": "📋",
-                "backlog_pull": "📤",
-                "newday": "🌅",
-                "error": "❌",
-            }
-
-            for key, expected_emoji in expected_emojis.items():
-                result = emoji(key)
-                assert (
-                    result == expected_emoji
-                ), f"Emoji for '{key}' should be '{expected_emoji}', got '{result}'"
+            # Test all known emoji keys
+            assert momentum.cli.emoji("added") == "✅"
+            assert momentum.cli.emoji("complete") == "🎉"
+            assert momentum.cli.emoji("backlog_add") == "📥"
+            assert momentum.cli.emoji("backlog_list") == "📋"
+            assert momentum.cli.emoji("backlog_pull") == "📤"
+            assert momentum.cli.emoji("newday") == "🌅"
+            assert momentum.cli.emoji("error") == "❌"
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain
 
 
 class TestTodayKey:
     """Test the today_key function."""
 
-    @patch("momentum.momentum.date")
+    @patch("momentum.cli.date")
     def test_today_key_format(self, mock_date):
         """Test today_key returns correct format."""
         mock_date.today.return_value.strftime.return_value = "2025-05-30"
@@ -411,38 +396,27 @@ class TestDisplayIntegration:
     """Test integration between display functions."""
 
     def test_print_backlog_uses_format_timestamp(self, capsys):
-        """Test that print_backlog_list uses format_backlog_timestamp correctly."""
+        """Test that print_backlog_list uses format_backlog_timestamp."""
         backlog = [{"task": "Test task", "ts": "2025-05-30T14:30:00"}]
-
         print_backlog_list(backlog)
+
         captured = capsys.readouterr()
-
-        # Should contain the formatted timestamp
-        assert "[05/30 14:30]" in captured.out
-
-        # Should NOT contain the raw timestamp
-        assert "2025-05-30T14:30:00" not in captured.out
+        assert "Test task [05/30 14:30]" in captured.out
 
     def test_emoji_integration_with_print_backlog(self, capsys):
         """Test that print_backlog_list uses emoji function correctly."""
         backlog = [{"task": "Test task", "ts": "2025-05-30T14:30:00"}]
-
-        # Test with plain mode disabled
-        original_plain = momentum.USE_PLAIN
-        momentum.USE_PLAIN = False
-
+        original_plain = momentum.cli.USE_PLAIN
         try:
+            momentum.cli.USE_PLAIN = False
             print_backlog_list(backlog)
             captured = capsys.readouterr()
-            assert "📋" in captured.out  # backlog_list emoji
-        finally:
-            momentum.USE_PLAIN = original_plain
-
-        # Test with plain mode enabled
-        momentum.USE_PLAIN = True
-        try:
+            assert "📋 Backlog:" in captured.out
+            assert "1. Test task [05/30 14:30]" in captured.out
+            momentum.cli.USE_PLAIN = True
             print_backlog_list(backlog)
             captured = capsys.readouterr()
-            assert "📋" not in captured.out  # no emoji in plain mode
+            assert "Test task [05/30 14:30]" in captured.out
+            assert "📋" not in captured.out
         finally:
-            momentum.USE_PLAIN = original_plain
+            momentum.cli.USE_PLAIN = original_plain

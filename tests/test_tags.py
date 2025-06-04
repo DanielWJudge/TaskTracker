@@ -1,6 +1,6 @@
 """Tests for task categories and tags functionality."""
 
-from momentum.momentum import (
+from momentum.cli import (
     parse_tags,
     format_task_with_tags,
     validate_tag_format,
