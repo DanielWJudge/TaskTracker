@@ -1,6 +1,6 @@
 # Momentum
 
-A minimal, one-task-at-a-time CLI tracker.
+A minimal, one-task-at-a-time CLI tracker with built-in Pomodoro timer.
 
 Momentum is a command-line task management tool that enforces focus by allowing only one active task at a time. Features a persistent backlog, interactive prompts, and clean status displays with optional emoji/color output.
 
@@ -14,7 +14,9 @@ Momentum/
 │   └── momentum/
 │       ├── __init__.py
 │       ├── __main__.py
-│       └── momentum.py
+│       ├── cli.py
+│       ├── display.py
+│       └── timer.py
 ├── tests/
 ├── pyproject.toml
 ├── LICENSE
@@ -97,11 +99,12 @@ Most productivity apps encourage **endless lists** that overwhelm your brain. Mo
 | Feature | Why It Matters |
 |---------|---------------|
 | 🎯 **Single Active Task** | Your brain works better with one focus. No context switching. |
+| ⏱️ **Pomodoro Timer** | Built-in timer for focused work sessions and breaks. |
 | 🔄 **Smart Completion Flow** | When you finish a task, Momentum asks: "What's next?" |
 | 📋 **Persistent Backlog** | Future tasks survive across days. Never lose track of what matters. |
 | ⚡ **Instant Startup** | No databases, no cloud sync delays. Pure speed. |
 | 🌍 **Universal Compatibility** | Windows, macOS, Linux. Command Prompt, PowerShell, Terminal. |
-| 🛡️ **Bulletproof** | 250 automated tests. Input validation. Error recovery. |
+| 🛡️ **Bulletproof** | Comprehensive test coverage. Input validation. Error recovery. |
 | 🎨 **Beautiful Output** | Color + emoji when available, clean ASCII when needed. |
 | 📦 **Zero Dependencies** | Pure Python. No external libraries. No complexity. |
 
@@ -442,3 +445,24 @@ Found a bug? Have an idea? PRs and issues welcome!
 If Momentum helps you ship faster, **star this repo** to help others discover it!
 
 **[⭐ Star on GitHub](https://github.com/yourusername/Momentum)**
+
+## ⏱️ Pomodoro Timer
+
+Momentum includes a built-in Pomodoro timer to help you maintain focus and take regular breaks:
+
+```sh
+# Start a 25-minute work session with 5-minute break
+python -m momentum timer
+
+# Customize work and break durations (in minutes)
+python -m momentum timer 45 10
+
+# Use plain mode for simpler output
+python -m momentum timer --plain
+```
+
+The timer features:
+- Visual progress bar showing time remaining
+- Clear phase indicators (work/break)
+- Optional plain mode for simpler output
+- Graceful cancellation with Ctrl+C
