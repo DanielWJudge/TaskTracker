@@ -10,6 +10,13 @@ class PomodoroTimer:
     def __init__(
         self, work_minutes: int, break_minutes: int = 5, plain_mode: bool = False
     ):
+        """Initialize PomodoroTimer with validation."""
+        if not isinstance(work_minutes, int) or not isinstance(break_minutes, int):
+            raise TypeError("Work and break durations must be integers")
+
+        if work_minutes < 0 or break_minutes < 0:
+            raise ValueError("Work and break durations cannot be negative")
+
         self.work_duration = work_minutes * 60
         self.break_duration = break_minutes * 60
         self.is_running = False
