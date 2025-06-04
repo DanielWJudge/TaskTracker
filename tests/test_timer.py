@@ -27,8 +27,8 @@ class TestPomodoroTimer:
         timer = PomodoroTimer(1)  # 1 minute
         timer._countdown(3, "work")  # 3 seconds, work phase
 
-        # Should print 00:03, 00:02, 00:01, and a newline, plus clear_line prints
-        assert mock_print.call_count == 7
+        # Should print 00:03, 00:02, 00:01, 00:00, and a newline, plus clear_line prints
+        assert mock_print.call_count == 9
         mock_sleep.assert_called_with(1)
 
     def test_cmd_timer_args(self):

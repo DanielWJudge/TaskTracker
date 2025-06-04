@@ -42,9 +42,10 @@ class PomodoroTimer:
 
     def _countdown(self, duration: int, phase: str):
         """Enhanced countdown with progress bar."""
-        for remaining in range(duration, 0, -1):
+        for remaining in range(duration, -1, -1):  # Include 0 in the countdown
             print_timer_status(phase, remaining, duration, self.plain_mode)
-            time.sleep(1)
+            if remaining > 0:  # Only sleep if there's time remaining
+                time.sleep(1)
         print()  # New line after completion
 
     def _handle_cancel(self, signum, frame):
