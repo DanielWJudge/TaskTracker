@@ -2,6 +2,7 @@
 
 from unittest.mock import patch, MagicMock
 from momentum.timer import PomodoroTimer, cmd_timer
+from momentum.display import create_progress_bar, format_time
 
 
 class TestPomodoroTimer:
@@ -35,7 +36,23 @@ class TestPomodoroTimer:
         args = MagicMock()
         args.work_minutes = 25
         args.break_minutes = 10
+        args.plain = False  # Ensure plain is set to a boolean
 
         with patch("momentum.timer.PomodoroTimer") as mock_timer:
             cmd_timer(args)
-            mock_timer.assert_called_once_with(25, 10)
+            mock_timer.assert_called_once_with(25, 10, False)
+
+
+class TestDisplayUtilities:
+    def test_progress_bar_creation(self):
+        """Test progress bar creation."""
+        # 50% progress
+        bar = create_progress_bar(30, 60, width=10)
+        assert "█████░░░░░" in bar
+        assert "50%" in bar
+
+    def test_time_formatting(self):
+        """Test time formatting."""
+        assert format_time(125) == "02:05"
+        assert format_time(3661) == "61:01"
+        assert format_time(59) == "00:59"

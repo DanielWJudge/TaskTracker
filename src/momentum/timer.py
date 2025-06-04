@@ -56,5 +56,6 @@ class PomodoroTimer:
 
 def cmd_timer(args):
     """Command function for timer."""
-    timer = PomodoroTimer(args.work_minutes, args.break_minutes)
+    plain_mode = getattr(args, "plain", False)
+    timer = PomodoroTimer(args.work_minutes, args.break_minutes, plain_mode)
     timer.start()
