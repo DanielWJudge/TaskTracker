@@ -29,9 +29,19 @@ Momentum/
 
 You need Python 3.8 or newer.
 
-Install in editable/development mode:
+### Install from PyPI (Recommended)
 
 ```sh
+pip install momentum-task
+```
+
+### Install from Source
+
+For development or to get the latest changes:
+
+```sh
+git clone https://github.com/DanielWJudge/Momentum.git
+cd momentum
 pip install -e .
 ```
 
@@ -177,7 +187,7 @@ pytest
 
 ```bash
 # Clone and enter
-git clone https://github.com/yourusername/Momentum.git
+git clone https://github.com/DanielWJudge/Momentum.git
 cd Momentum
 
 # Optional: Virtual environment (recommended)
@@ -337,7 +347,7 @@ Momentum welcomes contributions! The codebase is clean, tested, and documented.
 
 ```bash
 # Set up development environment
-git clone https://github.com/yourusername/Momentum.git
+git clone https://github.com/DanielWJudge/Momentum.git
 cd Momentum
 python -m venv .venv
 source .venv/bin/activate
@@ -444,7 +454,7 @@ Found a bug? Have an idea? PRs and issues welcome!
 
 If Momentum helps you ship faster, **star this repo** to help others discover it!
 
-**[⭐ Star on GitHub](https://github.com/yourusername/Momentum)**
+**[⭐ Star on GitHub](https://github.com/DanielWJudge/Momentum)**
 
 ## ⏱️ Pomodoro Timer
 
