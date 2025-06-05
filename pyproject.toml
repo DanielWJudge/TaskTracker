@@ -3,24 +3,45 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "momentum"
+name = "momentum-task"
 version = "0.1.0"
-description = "A minimal, one-task-at-a-time CLI tracker."
+description = "A minimal, one-task-at-a-time CLI tracker with built-in Pomodoro timer"
 authors = [
     { name = "Daniel Judge", email = "dwjref+momentum@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
+keywords = ["productivity", "task-management", "cli", "pomodoro", "todo", "gtd"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Scheduling",
+    "Topic :: Utilities",
 ]
 dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/DanielWJudge/Momentum"
+"Bug Reports" = "https://github.com/DanielWJudge/Momentum/issues"
+"Source" = "https://github.com/DanielWJudge/Momentum"
+"Documentation" = "https://github.com/DanielWJudge/Momentum#readme"
 
 [project.scripts]
 momentum = "momentum.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/momentum"] 
+packages = ["src/momentum"]
+
+[tool.hatch.version]
+path = "src/momentum/__init__.py"
