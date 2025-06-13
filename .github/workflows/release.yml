@@ -1,137 +1,121 @@
-name: Release to PyPI
+name: Release
 
 on:
   push:
     tags:
       - "v*"
 
+env:
+  PYTHONPATH: ${{ github.workspace }}/src
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install build dependencies
+          python-version: "3.9"
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
-
-      - name: Build distributions
+          pip install build twine
+      - name: Build package
         run: python -m build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-artifacts
-          path: dist/
-
   test:
-    runs-on: ubuntu-latest
     needs: build
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install test dependencies
+          python-version: "3.9"
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-
-      - name: Run test suite
-        run: pytest
+          pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest --cov=. --cov-report=xml
 
   security-scan:
+    needs: test
     runs-on: ubuntu-latest
-    needs: build
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install security tools
+          python-version: "3.9"
+      - name: Install dependencies
         run: |
-          pip install pip-audit bandit
-
-      - name: Run pip-audit
-        run: pip-audit
-
-      - name: Run bandit
-        run: bandit -r src/momentum/ -ll
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Run security scans
+        run: |
+          pip-audit
+          bandit -r src/momentum
 
   publish-testpypi:
+    needs: security-scan
     runs-on: ubuntu-latest
-    needs: [build, test, security-scan]
+    environment: testpypi
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-artifacts
-          path: dist/
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install Twine
-        run: pip install twine
-
+          python-version: "3.9"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      - name: Build package
+        run: python -m build
       - name: Publish to TestPyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        run: |
-          twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+        run: twine upload --repository testpypi dist/*
 
   publish-pypi:
-    runs-on: ubuntu-latest
     needs: publish-testpypi
+    runs-on: ubuntu-latest
     environment: pypi-production
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-artifacts
-          path: dist/
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install Twine
-        run: pip install twine
-
+          python-version: "3.9"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      - name: Build package
+        run: python -m build
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          twine upload dist/*
+        run: twine upload dist/*
 
   release-notes:
-    runs-on: ubuntu-latest
     needs: publish-pypi
-    permissions:
-      contents: write
+    runs-on: ubuntu-latest
     steps:
-      - name: Generate GitHub release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate Release Notes
+        id: release_notes
+        uses: softprops/action-gh-release@v1
         with:
           generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

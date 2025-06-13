@@ -53,15 +53,14 @@ def test_workflow_syntax():
     security_job = workflow["jobs"]["security-scan"]
     assert security_job["runs-on"] == "ubuntu-latest"
     needs = security_job["needs"]
-    assert needs == "build" or needs == ["build"]
+    assert needs == "test" or needs == ["test"]
     assert "steps" in security_job
 
     # Test TestPyPI publish job
     testpypi_job = workflow["jobs"]["publish-testpypi"]
     assert testpypi_job["runs-on"] == "ubuntu-latest"
     needs = testpypi_job["needs"]
-    assert isinstance(needs, list)
-    assert set(needs) == {"build", "test", "security-scan"}
+    assert needs == "security-scan" or needs == ["security-scan"]
     assert "steps" in testpypi_job
 
     # Test PyPI publish job
@@ -77,8 +76,6 @@ def test_workflow_syntax():
     assert release_job["runs-on"] == "ubuntu-latest"
     needs = release_job["needs"]
     assert needs == "publish-pypi" or needs == ["publish-pypi"]
-    assert "permissions" in release_job
-    assert release_job["permissions"]["contents"] == "write"
     assert "steps" in release_job
 
 
@@ -91,7 +88,7 @@ def test_workflow_dependencies():
     # Check build dependencies
     build_steps = workflow["jobs"]["build"]["steps"]
     build_deps = next(
-        (step for step in build_steps if step["name"] == "Install build dependencies"),
+        (step for step in build_steps if step.get("name") == "Install dependencies"),
         None,
     )
     assert build_deps is not None
@@ -100,17 +97,18 @@ def test_workflow_dependencies():
     # Check test dependencies
     test_steps = workflow["jobs"]["test"]["steps"]
     test_deps = next(
-        (step for step in test_steps if step["name"] == "Install test dependencies"),
+        (step for step in test_steps if step.get("name") == "Install dependencies"),
         None,
     )
     assert test_deps is not None
-    assert "pip install pytest" in test_deps["run"]
+    assert "pip install -r requirements-dev.txt" in test_deps["run"]
 
     # Check security tool dependencies
     security_steps = workflow["jobs"]["security-scan"]["steps"]
-    security_deps = next(
-        (step for step in security_steps if step["name"] == "Install security tools"),
+    security_scan_step = next(
+        (step for step in security_steps if step.get("name") == "Run security scans"),
         None,
     )
-    assert security_deps is not None
-    assert "pip install pip-audit bandit" in security_deps["run"]
+    assert security_scan_step is not None
+    assert "pip-audit" in security_scan_step["run"]
+    assert "bandit" in security_scan_step["run"]
