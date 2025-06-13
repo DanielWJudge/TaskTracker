@@ -4,3 +4,4 @@ storage.json
 test_storage.json
 .vscode/
 .coverage
+dist/
