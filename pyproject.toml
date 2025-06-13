@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "momentum-task"
-version = "0.1.0"
+version = "dynamic"
 description = "A minimal, one-task-at-a-time CLI tracker with built-in Pomodoro timer"
 authors = [
     { name = "Daniel Judge", email = "dwjref+momentum@gmail.com" }
@@ -45,3 +45,6 @@ packages = ["src/momentum"]
 
 [tool.hatch.version]
 path = "src/momentum/__init__.py"
+
+[tool.setuptools.dynamic]
+version = { attr = "momentum.__version__" }
