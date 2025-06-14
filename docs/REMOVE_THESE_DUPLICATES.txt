@@ -1,0 +1,8 @@
+Remove these duplicate files from docs/ (keep only in docs/source/):
+- installation.md
+- quickstart.md
+- troubleshooting.md
+- user-guide/basic-usage.md
+- user-guide/categories-tags.md
+- user-guide/filtering.md
+- user-guide/advanced-features.md

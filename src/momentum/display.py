@@ -4,7 +4,18 @@
 def create_progress_bar(
     current: int, total: int, width: int = 25, plain_mode: bool = False
 ) -> str:
-    """Create a progress bar string."""
+    """
+    Create a progress bar string for display.
+
+    Args:
+        current (int): Current progress value.
+        total (int): Total value for completion.
+        width (int, optional): Width of the progress bar. Defaults to 25.
+        plain_mode (bool, optional): If True, disables emoji/color output.
+
+    Returns:
+        str: Formatted progress bar string.
+    """
     if total == 0:
         percentage = 0.0
     else:
@@ -24,14 +35,26 @@ def create_progress_bar(
 
 
 def format_time(seconds: int) -> str:
-    """Format seconds as MM:SS."""
+    """
+    Format seconds as MM:SS.
+
+    Args:
+        seconds (int): Number of seconds.
+
+    Returns:
+        str: Time formatted as MM:SS.
+    """
     minutes = seconds // 60
     secs = seconds % 60
     return f"{minutes:02d}:{secs:02d}"
 
 
 def clear_line():
-    """Clear current line for updating display."""
+    """
+    Clear current line for updating display.
+
+    This is useful for overwriting previous output in the terminal.
+    """
     print("\r" + " " * 80 + "\r", end="", flush=True)
 
 

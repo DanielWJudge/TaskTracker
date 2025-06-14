@@ -7,10 +7,34 @@ from .display import print_timer_status
 
 
 class PomodoroTimer:
+    """
+    Pomodoro timer for work/break intervals.
+
+    Args:
+        work_minutes (int): Duration of work session in minutes.
+        break_minutes (int, optional): Duration of break in minutes. Defaults to 5.
+        plain_mode (bool, optional): If True, disables emoji/color output.
+
+    Raises:
+        TypeError: If durations are not integers.
+        ValueError: If durations are negative.
+    """
+
     def __init__(
         self, work_minutes: int, break_minutes: int = 5, plain_mode: bool = False
     ):
-        """Initialize PomodoroTimer with validation."""
+        """
+        Initialize PomodoroTimer with validation.
+
+        Args:
+            work_minutes (int): Duration of work session in minutes.
+            break_minutes (int, optional): Duration of break in minutes. Defaults to 5.
+            plain_mode (bool, optional): If True, disables emoji/color output.
+
+        Raises:
+            TypeError: If durations are not integers.
+            ValueError: If durations are negative.
+        """
         if not isinstance(work_minutes, int) or not isinstance(break_minutes, int):
             raise TypeError("Work and break durations must be integers")
 
@@ -25,7 +49,11 @@ class PomodoroTimer:
         self.plain_mode = plain_mode
 
     def start(self):
-        """Start the timer with basic output."""
+        """
+        Start the timer with basic output.
+
+        Handles SIGINT for graceful cancellation and runs both work and break sessions.
+        """
         self.is_running = True
         signal.signal(signal.SIGINT, self._handle_cancel)
 
