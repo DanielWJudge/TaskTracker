@@ -1,6 +1,6 @@
 # Momentum
 
-[![Documentation Status](https://img.shields.io/badge/docs-online-brightgreen)](https://your-github-username.github.io/momentum/)
+[![Documentation Status](https://img.shields.io/badge/docs-online-brightgreen)](https://DanielWJudge.github.io/momentum/)
 
 A minimal, one-task-at-a-time CLI tracker for focused productivity.
 
@@ -32,12 +32,12 @@ pip install momentum
 For development or to get the latest changes:
 
 ```sh
-git clone https://github.com/your-github-username/momentum.git
+git clone https://github.com/DanielWJudge/momentum.git
 cd momentum
 pip install -e .
 ```
 
-See [full installation instructions](https://your-github-username.github.io/momentum/installation.html).
+See [full installation instructions](https://DanielWJudge.github.io/momentum/installation.html).
 
 ---
 
@@ -49,14 +49,14 @@ momentum status
 momentum done
 ```
 
-See the [Quickstart Guide](https://your-github-username.github.io/momentum/quickstart.html) for more.
+See the [Quickstart Guide](https://DanielWJudge.github.io/momentum/quickstart.html) for more.
 
 ---
 
 ## Documentation
 
 Full documentation is available at:
-https://your-github-username.github.io/momentum/
+https://DanielWJudge.github.io/momentum/
 
 ---
 
@@ -74,4 +74,4 @@ This project is licensed under the terms of the [MIT License](LICENSE).
 
 ## Support
 
-- [GitHub Issues](https://github.com/your-github-username/momentum/issues)
+- [GitHub Issues](https://github.com/DanielWJudge/momentum/issues)
