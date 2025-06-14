@@ -58,7 +58,7 @@ man_pages = [
 
 
 # -- Options for GitHub Pages ------------------------------------------------
-html_baseurl = "https://your-github-username.github.io/momentum/"
+html_baseurl = "https://DanielWJudge.github.io/momentum/"
 
 
 # -- Custom sidebar templates, must be a dictionary that maps document names
