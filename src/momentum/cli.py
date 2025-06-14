@@ -28,6 +28,16 @@ import os
 
 # ===== Helper for case-insensitive deduplication =====
 def merge_and_dedup_case_insensitive(list1, list2):
+    """
+    Merge two lists, removing duplicates in a case-insensitive manner.
+
+    Args:
+        list1 (list): First list of strings.
+        list2 (list): Second list of strings.
+
+    Returns:
+        list: Merged list with unique items (case-insensitive).
+    """
     seen = set()
     result = []
     for item in list1 + list2:
@@ -45,7 +55,15 @@ STORE: Path = Path("storage.json")
 
 # ===== Configuration =====
 class Config:
-    """Configuration constants for Momentum."""
+    """
+    Configuration constants for Momentum.
+
+    Attributes:
+        MAX_TASK_LENGTH (int): Maximum allowed length for a task description.
+        STORAGE_ENCODING (str): Encoding used for storage files.
+        DATE_FORMAT (str): Date format for display and storage.
+        TIME_FORMAT (str): Time format for display and storage.
+    """
 
     MAX_TASK_LENGTH = 500
     STORAGE_ENCODING = "utf-8"
@@ -55,7 +73,12 @@ class Config:
 
 # ===== Console setup =====
 def setup_console_encoding():
-    """Set up console encoding for better Unicode support."""
+    """
+    Set up console encoding for better Unicode support on Windows.
+
+    On Windows, attempts to set UTF-8 encoding for stdout and stderr to improve
+    Unicode/emoji output in the terminal. Has no effect on other platforms.
+    """
     if sys.platform == "win32":
         try:
             # Try to enable UTF-8 mode on Windows
@@ -1510,7 +1533,12 @@ def cmd_history(args):
 
 
 def build_parser():
-    """Build and configure the argument parser for all CLI commands."""
+    """
+    Build and configure the argument parser for all CLI commands.
+
+    Returns:
+        argparse.ArgumentParser: Configured argument parser for Momentum CLI.
+    """
     p = argparse.ArgumentParser(description="One-task-at-a-time tracker")
     p.add_argument("--store", default=None, help="Custom storage path")
     p.add_argument("--plain", action="store_true", help="Disable emoji / colour")
@@ -1610,3 +1638,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Expose a parser instance for Sphinx autoprogram
+cli_parser = build_parser()
